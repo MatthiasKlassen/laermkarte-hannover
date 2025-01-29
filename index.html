@@ -6,19 +6,45 @@
     <title>Lärmkarte Hannover</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-d3@1.1.0/leaflet-d3.min.js"></script>
     <style>
         #map { height: 600px; width: 100%; }
+        #controls { margin: 10px; }
     </style>
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
+    
+    <div id="controls">
+        <label for="filter">Filter Lärmpegel (dB): </label>
+        <input type="number" id="filter" value="0" min="0" max="100">
+        <button onclick="filterData()">Filter anwenden</button>
+    </div>
+
     <div id="map"></div>
+
+    <h3>Eigene Lärmdaten hinzufügen</h3>
+    <form id="dataForm">
+        <label>Latitude: <input type="number" step="0.0001" id="lat" required></label>
+        <label>Longitude: <input type="number" step="0.0001" id="lng" required></label>
+        <label>Lärmpegel (dB): <input type="number" id="value" required></label>
+        <button type="submit">Hinzufügen</button>
+    </form>
 
     <script>
         var map = L.map('map').setView([52.3759, 9.7320], 12); // Hannover Koordinaten
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        var hexLayer = L.hexbinLayer({
+            radius: 20,
+            opacity: 0.6,
+            duration: 500,
+            colorScaleExtent: [50, 90],
+            colorRange: ["blue", "red"]
         }).addTo(map);
 
         var laermDaten = [
@@ -28,12 +54,28 @@
             { lat: 52.3650, lng: 9.7100, value: 60 }
         ];
 
-        laermDaten.forEach(function(d) {
-            L.circleMarker([d.lat, d.lng], {
-                radius: d.value / 10, // Größe je nach Lärmpegel
-                color: d.value > 70 ? 'red' : 'blue'
-            }).addTo(map)
-            .bindPopup("Lärmpegel: " + d.value + " dB");
+        function updateMap(data) {
+            hexLayer.data(data);
+        }
+
+        updateMap(laermDaten);
+
+        function filterData() {
+            var minValue = document.getElementById("filter").value;
+            var filteredData = laermDaten.filter(d => d.value >= minValue);
+            updateMap(filteredData);
+        }
+
+        document.getElementById("dataForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            var lat = parseFloat(document.getElementById("lat").value);
+            var lng = parseFloat(document.getElementById("lng").value);
+            var value = parseInt(document.getElementById("value").value);
+
+            if (!isNaN(lat) && !isNaN(lng) && !isNaN(value)) {
+                laermDaten.push({ lat, lng, value });
+                updateMap(laermDaten);
+            }
         });
     </script>
 </body>

@@ -79,7 +79,7 @@
                     fillColor: getColor(newValue),
                     radius: 8
                 });
-                existingMarker.marker.setPopupContent(Lärmpegel: ${newValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${existingMarker.name});
+                existingMarker.marker.setPopupContent(`Lärmpegel: ${newValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${existingMarker.name}`);
             } else {
                 var color = getColor(value);
                 var marker = L.circleMarker([lat, lng], {
@@ -89,7 +89,7 @@
                     weight: 1,
                     opacity: 1,
                     fillOpacity: 0.8
-                }).addTo(map).bindPopup(Lärmpegel: ${value} dB<br>Zeit: ${timestamp}<br>Jäger: ${name});
+                }).addTo(map).bindPopup(`Lärmpegel: ${value} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
 
                 laermDaten.push({ lat, lng, value, timestamp, name, marker });
                 saveData(); // Daten speichern
@@ -128,7 +128,7 @@
 
         timeSlider.addEventListener('input', function() {
             var selectedHour = parseInt(timeSlider.value);
-            sliderLabel.textContent = ${String(selectedHour).padStart(2, '0')}:00;
+            sliderLabel.textContent = `${String(selectedHour).padStart(2, '0')}:00`;
 
             // Markierungen je nach ausgewählter Zeit ein- oder ausblenden
             laermDaten.forEach(function(data) {
@@ -151,7 +151,7 @@
                 weight: 1,
                 opacity: 1,
                 fillOpacity: 0.8
-            }).addTo(map).bindPopup(Lärmpegel: ${data.value} dB<br>Zeit: ${data.timestamp}<br>Jäger: ${data.name});
+            }).addTo(map).bindPopup(`Lärmpegel: ${data.value} dB<br>Zeit: ${data.timestamp}<br>Jäger: ${data.name}`);
 
             data.marker = marker;
         });

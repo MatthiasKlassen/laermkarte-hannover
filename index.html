@@ -6,33 +6,38 @@
     <title>Lärmkarte Hannover</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module">
-        // Firebase importieren
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    <style>
+        #map { height: 1000px; width: 100%; }
+        #info-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <h2>Lärmkarte Hannover</h2>
 
-        // Firebase-Konfiguration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
-            authDomain: "laermjaeger.firebaseapp.com",
-            projectId: "laermjaeger",
-            storageBucket: "laermjaeger.firebasestorage.app",
-            messagingSenderId: "738314658200",
-            appId: "1:738314658200:web:9557a02160883849b78bed",
-            measurementId: "G-1M823BECWK"
-        };
+    <div id="map"></div>
 
-        // Firebase initialisieren
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    <script>
+        // 1. Karte initialisieren
+        var map = L.map('map').setView([52.3759, 9.7320], 12); // Hannover Koordinaten
 
-        // Leaflet-Karte initialisieren
-        var map = L.map('map').setView([52.3759, 9.7320], 12);
+        // 2. OpenStreetMap als Basiskarte hinzufügen
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Farbskala für Lärmpegel
+        // 3. Lärmdaten speichern
+        var laermDaten = [];
+
+        // 4. Funktion zur Farbskalierung basierend auf dB-Werten
         function getColor(dB) {
             return dB < 50 ? "green" :
                    dB < 60 ? "yellowgreen" :
@@ -42,7 +47,7 @@
                    dB < 100 ? "red" : "darkred";
         }
 
-        // Marker hinzufügen
+        // 5. Marker hinzufügen und färben
         function addMarker(lat, lng, value) {
             var color = getColor(value);
             var marker = L.circleMarker([lat, lng], {
@@ -53,72 +58,26 @@
                 opacity: 1,
                 fillOpacity: 0.8
             }).addTo(map).bindPopup(`Lärmpegel: ${value} dB`);
+
+            laermDaten.push({ lat, lng, value });
         }
 
-        // Bestehende Daten laden
-        async function loadData() {
-            const querySnapshot = await getDocs(collection(db, "laermDaten"));
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                addMarker(data.lat, data.lng, data.value);
-            });
-        }
-        loadData();
-
-        // Klick-Event für neue Einträge
-        map.on('click', async function(e) {
+        // 6. Klick-Event zum Hinzufügen von Lärmdaten
+        map.on('click', function(e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
-            var value = prompt("Gib den Lärmpegel in dB ein (0-140):");
+            var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
 
             if (value !== null) {
                 value = parseInt(value);
-                if (!isNaN(value) && value >= 0 && value <= 140) {
-                    // Prüfen, ob bereits Daten an dieser Position existieren
-                    const q = query(collection(db, "laermDaten"), where("lat", "==", lat), where("lng", "==", lng));
-                    const querySnapshot = await getDocs(q);
-
-                    if (!querySnapshot.empty) {
-                        // Wenn Daten vorhanden sind, den Mittelwert berechnen
-                        let sum = 0;
-                        let count = 0;
-                        querySnapshot.forEach((doc) => {
-                            sum += doc.data().value;
-                            count++;
-                        });
-                        const avgValue = Math.round((sum + value) / (count + 1));
-
-                        // Existierenden Eintrag aktualisieren
-                        querySnapshot.forEach((doc) => {
-                            updateDoc(doc.ref, { value: avgValue });
-                        });
-                        addMarker(lat, lng, avgValue);
-                    } else {
-                        // Wenn keine Daten vorhanden sind, neuen Eintrag hinzufügen
-                        const docRef = await addDoc(collection(db, "laermDaten"), { lat, lng, value });
-                        addMarker(lat, lng, value);
-                    }
+                if (!isNaN(value) && value >= 40 && value <= 120) {
+                    addMarker(lat, lng, value);
                 } else {
-                    alert("Bitte einen gültigen Wert zwischen 0 und 140 dB eingeben.");
+                    alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
                 }
             }
         });
 
-        // Löschen (nur du kannst löschen)
-        async function deleteData(id) {
-            const password = prompt("Admin-Passwort eingeben:");
-            if (password === "DEIN_SICHERES_PASSWORT") {
-                await deleteDoc(doc(db, "laermDaten", id));
-                alert("Eintrag gelöscht! Bitte Seite neu laden.");
-            } else {
-                alert("Falsches Passwort!");
-            }
-        }
-        window.deleteData = deleteData;
     </script>
-</head>
-<body>
-    <h2>Lärmkarte Hannover</h2>
-    <div id="map" style="height: 1000px; width: 100%;"></div>
 </body>
 </html>

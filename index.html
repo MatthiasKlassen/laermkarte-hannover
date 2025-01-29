@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: 1000px; width: 100%; }
+        #map { height: 600px; width: 100%; }
         #info-box {
             position: absolute;
             top: 10px;
@@ -18,12 +18,21 @@
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
             z-index: 1000;
         }
+        #time-slider {
+            position: absolute;
+            top: 10px;
+            left: 220px;
+            width: 200px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
 
     <div id="map"></div>
+    <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+    <label for="time-slider" id="slider-label">Zeit: 00:00</label>
 
     <script>
         // 1. Karte initialisieren
@@ -35,7 +44,7 @@
         }).addTo(map);
 
         // 3. Lärmdaten speichern
-        var laermDaten = [];
+        var laermDaten = JSON.parse(localStorage.getItem('laermDaten')) || [];
 
         // 4. Funktion zur Farbskalierung basierend auf dB-Werten
         function getColor(dB) {
@@ -47,22 +56,55 @@
                    dB < 100 ? "red" : "darkred";
         }
 
-        // 5. Marker hinzufügen und färben
-        function addMarker(lat, lng, value) {
-            var color = getColor(value);
-            var marker = L.circleMarker([lat, lng], {
-                radius: 8,
-                fillColor: color,
-                color: "#000",
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).addTo(map).bindPopup(`Lärmpegel: ${value} dB`);
-
-            laermDaten.push({ lat, lng, value });
+        // 5. Funktion zur Überprüfung und Berechnung des Mittelwerts
+        function getExistingMarker(lat, lng) {
+            var tolerance = 0.0005;
+            for (var i = 0; i < laermDaten.length; i++) {
+                var data = laermDaten[i];
+                var distance = Math.sqrt(Math.pow(lat - data.lat, 2) + Math.pow(lng - data.lng, 2));
+                if (distance < tolerance) {
+                    return data; // Rückgabe des existierenden Markers, wenn er im Toleranzbereich liegt
+                }
+            }
+            return null; // Kein Marker in der Nähe gefunden
         }
 
-        // 6. Klick-Event zum Hinzufügen von Lärmdaten
+        // 6. Marker hinzufügen und färben
+        function addMarker(lat, lng, value, name) {
+            var existingMarker = getExistingMarker(lat, lng);
+            var timestamp = new Date().toLocaleTimeString(); // Zeitstempel hinzufügen
+            if (existingMarker) {
+                var newValue = Math.round((existingMarker.value + value) / 2);
+                existingMarker.value = newValue;
+                existingMarker.timestamp = timestamp; // Aktualisiere den Zeitstempel
+                existingMarker.name = name; // Aktualisiere den Namen
+                existingMarker.marker.setStyle({
+                    fillColor: getColor(newValue),
+                    radius: 8
+                });
+                existingMarker.marker.setPopupContent(`Lärmpegel: ${newValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
+            } else {
+                var color = getColor(value);
+                var marker = L.circleMarker([lat, lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map).bindPopup(`Lärmpegel: ${value} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
+
+                laermDaten.push({ lat, lng, value, timestamp, name, marker });
+                saveData(); // Daten speichern
+            }
+        }
+
+        // 7. Funktion zum Speichern der Lärmdaten im localStorage
+        function saveData() {
+            localStorage.setItem('laermDaten', JSON.stringify(laermDaten));
+        }
+
+        // 8. Klick-Event zum Hinzufügen von Lärmdaten
         map.on('click', function(e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
@@ -71,11 +113,40 @@
             if (value !== null) {
                 value = parseInt(value);
                 if (!isNaN(value) && value >= 40 && value <= 120) {
-                    addMarker(lat, lng, value);
+                    var name = prompt("Gib den Jägernamen ein:");
+                    if (name !== null && name.trim() !== "") {
+                        addMarker(lat, lng, value, name);
+                    } else {
+                        alert("Bitte einen gültigen Jägernamen eingeben.");
+                    }
                 } else {
                     alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
                 }
             }
+        });
+
+        // 9. Schieberegler zur Filterung nach Zeit
+        var timeSlider = document.getElementById('time-slider');
+        var sliderLabel = document.getElementById('slider-label');
+
+        timeSlider.addEventListener('input', function() {
+            var selectedHour = timeSlider.value;
+            sliderLabel.textContent = `Zeit: ${String(selectedHour).padStart(2, '0')}:00`;
+
+            // Markierungen je nach ausgewählter Zeit ein- oder ausblenden
+            laermDaten.forEach(function(data) {
+                var markerHour = new Date(data.timestamp).getHours();
+                if (markerHour === selectedHour) {
+                    data.marker.addTo(map);
+                } else {
+                    map.removeLayer(data.marker);
+                }
+            });
+        });
+
+        // 10. Markierungen beim Laden der Seite wiederherstellen
+        laermDaten.forEach(function(data) {
+            data.marker.addTo(map);
         });
 
     </script>

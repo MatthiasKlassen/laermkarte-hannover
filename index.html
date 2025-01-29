@@ -8,44 +8,26 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         #map { height: 1000px; width: 100%; }
-        #info-box {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
+        #time-container {
+            text-align: center;
+            margin-top: 10px;
         }
         #time-slider {
-            position: absolute;
-            top: 60px;
-            left: 220px;
-            width: 200px;
-            z-index: 1000;
-        }
-        #slider-label {
-            position: absolute;
-            top: 60px;
-            left: 440px;
-            z-index: 1000;
-        }
-        #time-label {
-            position: absolute;
-            top: 40px;
-            left: 220px;
-            z-index: 1000;
+            width: 300px;
         }
     </style>
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
-    <div id="time-label">Uhrzeit:</div>
-    <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
-    <label for="time-slider" id="slider-label">Zeit: 00:00</label>
 
     <div id="map"></div>
+
+    <!-- Zeitregler unter der Karte -->
+    <div id="time-container">
+        <label for="time-slider">Uhrzeit:</label>
+        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+        <span id="slider-label">00:00</span>
+    </div>
 
     <script>
         // 1. Karte initialisieren
@@ -85,7 +67,8 @@
         // 6. Marker hinzufügen und färben
         function addMarker(lat, lng, value, name) {
             var existingMarker = getExistingMarker(lat, lng);
-            var timestamp = new Date().toLocaleTimeString(); // Zeitstempel hinzufügen
+            var timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
             if (existingMarker) {
                 // Mittelwert berechnen und Namen zusammenfassen
                 var newValue = Math.round((existingMarker.value + value) / 2);
@@ -144,12 +127,12 @@
         var sliderLabel = document.getElementById('slider-label');
 
         timeSlider.addEventListener('input', function() {
-            var selectedHour = timeSlider.value;
-            sliderLabel.textContent = `Zeit: ${String(selectedHour).padStart(2, '0')}:00`;
+            var selectedHour = parseInt(timeSlider.value);
+            sliderLabel.textContent = `${String(selectedHour).padStart(2, '0')}:00`;
 
             // Markierungen je nach ausgewählter Zeit ein- oder ausblenden
             laermDaten.forEach(function(data) {
-                var markerHour = new Date(data.timestamp).getHours();
+                var markerHour = parseInt(data.timestamp.split(":")[0]); // Stunden extrahieren
                 if (markerHour === selectedHour) {
                     data.marker.addTo(map);
                 } else {
@@ -160,7 +143,17 @@
 
         // 10. Markierungen beim Laden der Seite wiederherstellen
         laermDaten.forEach(function(data) {
-            data.marker.addTo(map);
+            var color = getColor(data.value);
+            var marker = L.circleMarker([data.lat, data.lng], {
+                radius: 8,
+                fillColor: color,
+                color: "#000",
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map).bindPopup(`Lärmpegel: ${data.value} dB<br>Zeit: ${data.timestamp}<br>Jäger: ${data.name}`);
+
+            data.marker = marker;
         });
 
     </script>

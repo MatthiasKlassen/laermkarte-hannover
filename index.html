@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: 600px; width: 100%; }
+        #map { height: 1000px; width: 100%; }
         #info-box {
             position: absolute;
             top: 10px;
@@ -20,19 +20,32 @@
         }
         #time-slider {
             position: absolute;
-            top: 10px;
+            top: 60px;
             left: 220px;
             width: 200px;
+            z-index: 1000;
+        }
+        #slider-label {
+            position: absolute;
+            top: 60px;
+            left: 440px;
+            z-index: 1000;
+        }
+        #time-label {
+            position: absolute;
+            top: 40px;
+            left: 220px;
             z-index: 1000;
         }
     </style>
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
-
-    <div id="map"></div>
+    <div id="time-label">Uhrzeit:</div>
     <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
     <label for="time-slider" id="slider-label">Zeit: 00:00</label>
+
+    <div id="map"></div>
 
     <script>
         // 1. Karte initialisieren
@@ -74,15 +87,16 @@
             var existingMarker = getExistingMarker(lat, lng);
             var timestamp = new Date().toLocaleTimeString(); // Zeitstempel hinzufügen
             if (existingMarker) {
+                // Mittelwert berechnen und Namen zusammenfassen
                 var newValue = Math.round((existingMarker.value + value) / 2);
                 existingMarker.value = newValue;
                 existingMarker.timestamp = timestamp; // Aktualisiere den Zeitstempel
-                existingMarker.name = name; // Aktualisiere den Namen
+                existingMarker.name = existingMarker.name + ", " + name; // Jägernamen zusammenfassen
                 existingMarker.marker.setStyle({
                     fillColor: getColor(newValue),
                     radius: 8
                 });
-                existingMarker.marker.setPopupContent(`Lärmpegel: ${newValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
+                existingMarker.marker.setPopupContent(`Lärmpegel: ${newValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${existingMarker.name}`);
             } else {
                 var color = getColor(value);
                 var marker = L.circleMarker([lat, lng], {

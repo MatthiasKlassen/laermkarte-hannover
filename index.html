@@ -9,7 +9,7 @@
     <script type="module">
         // Firebase importieren
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
         // Firebase-Konfiguration
         const firebaseConfig = {
@@ -43,7 +43,7 @@
         }
 
         // Marker hinzufügen
-        function addMarker(id, lat, lng, value) {
+        function addMarker(lat, lng, value) {
             var color = getColor(value);
             var marker = L.circleMarker([lat, lng], {
                 radius: 8,
@@ -52,7 +52,7 @@
                 weight: 1,
                 opacity: 1,
                 fillOpacity: 0.8
-            }).addTo(map).bindPopup(`Lärmpegel: ${value} dB <br><button onclick="deleteData('${id}')">Löschen</button>`);
+            }).addTo(map).bindPopup(`Lärmpegel: ${value} dB`);
         }
 
         // Bestehende Daten laden
@@ -60,7 +60,7 @@
             const querySnapshot = await getDocs(collection(db, "laermDaten"));
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
-                addMarker(doc.id, data.lat, data.lng, data.value);
+                addMarker(data.lat, data.lng, data.value);
             });
         }
         loadData();
@@ -69,15 +69,37 @@
         map.on('click', async function(e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
-            var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
+            var value = prompt("Gib den Lärmpegel in dB ein (0-140):");
 
             if (value !== null) {
                 value = parseInt(value);
-                if (!isNaN(value) && value >= 40 && value <= 120) {
-                    const docRef = await addDoc(collection(db, "laermDaten"), { lat, lng, value });
-                    addMarker(docRef.id, lat, lng, value);
+                if (!isNaN(value) && value >= 0 && value <= 140) {
+                    // Prüfen, ob bereits Daten an dieser Position existieren
+                    const q = query(collection(db, "laermDaten"), where("lat", "==", lat), where("lng", "==", lng));
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        // Wenn Daten vorhanden sind, den Mittelwert berechnen
+                        let sum = 0;
+                        let count = 0;
+                        querySnapshot.forEach((doc) => {
+                            sum += doc.data().value;
+                            count++;
+                        });
+                        const avgValue = Math.round((sum + value) / (count + 1));
+
+                        // Existierenden Eintrag aktualisieren
+                        querySnapshot.forEach((doc) => {
+                            updateDoc(doc.ref, { value: avgValue });
+                        });
+                        addMarker(lat, lng, avgValue);
+                    } else {
+                        // Wenn keine Daten vorhanden sind, neuen Eintrag hinzufügen
+                        const docRef = await addDoc(collection(db, "laermDaten"), { lat, lng, value });
+                        addMarker(lat, lng, value);
+                    }
                 } else {
-                    alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+                    alert("Bitte einen gültigen Wert zwischen 0 und 140 dB eingeben.");
                 }
             }
         });

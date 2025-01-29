@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lärmkarte Hannover</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 600px; width: 100%; }
+    </style>
+</head>
+<body>
+    <h2>Lärmkarte Hannover</h2>
+    <div id="map"></div>
+
+    <script>
+        var map = L.map('map').setView([52.3759, 9.7320], 12); // Hannover Koordinaten
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        var laermDaten = [
+            { lat: 52.3759, lng: 9.7320, value: 70 },
+            { lat: 52.3800, lng: 9.7400, value: 55 },
+            { lat: 52.3700, lng: 9.7200, value: 80 },
+            { lat: 52.3650, lng: 9.7100, value: 60 }
+        ];
+
+        laermDaten.forEach(function(d) {
+            L.circleMarker([d.lat, d.lng], {
+                radius: d.value / 10, // Größe je nach Lärmpegel
+                color: d.value > 70 ? 'red' : 'blue'
+            }).addTo(map)
+            .bindPopup("Lärmpegel: " + d.value + " dB");
+        });
+    </script>
+</body>
+</html>

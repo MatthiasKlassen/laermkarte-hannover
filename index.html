@@ -4,28 +4,46 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lärmkarte Hannover</title>
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet & Firebase -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
-    <script src="https://unpkg.com/d3-hexbin"></script>
+
     <style>
-        #map { height: 1000px; width: 100%; }
-        #time-container { text-align: center; margin-top: 10px; }
+        #map { height: 800px; width: 100%; }
+        #time-container {
+            text-align: center;
+            margin-top: 10px;
+        }
         #time-slider { width: 300px; }
+        #export-btn {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
+
     <div id="map"></div>
+
     <div id="time-container">
         <label for="time-slider">Uhrzeit:</label>
         <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
         <span id="slider-label">00:00</span>
-        <button onclick="exportCSV()">Daten als CSV exportieren</button>
+        <button id="export-btn">CSV Export</button>
     </div>
 
     <script>
+        // 🔥 Firebase Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
             authDomain: "laermjaeger.firebaseapp.com",
@@ -36,57 +54,117 @@
             measurementId: "G-1M823BECWK"
         };
         
+        // Firebase Initialisieren
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        
-        var map = L.map('map').setView([52.3759, 9.7320], 12);
+
+        // 🔍 Karte initialisieren
+        var map = L.map('map').setView([52.3759, 9.7320], 12); 
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
-        
-        var laermDaten = [];
-        
+
+        // 📌 HEXAGON-GRID FUNKTION (150x150m)
+        function getHexagonKey(lat, lng) {
+            let hexSize = 0.0015; // Etwa 150m
+            let hexLat = Math.round(lat / hexSize) * hexSize;
+            let hexLng = Math.round(lng / hexSize) * hexSize;
+            return `${hexLat},${hexLng}`;
+        }
+
+        var hexagons = {}; // Speichert alle Hexagons
+
         function getColor(dB) {
-            return dB < 50 ? "green" : dB < 60 ? "yellowgreen" : dB < 70 ? "yellow" : dB < 80 ? "orange" : dB < 90 ? "orangered" : dB < 100 ? "red" : "darkred";
+            return dB < 50 ? "green" :
+                   dB < 60 ? "yellowgreen" :
+                   dB < 70 ? "yellow" :
+                   dB < 80 ? "orange" :
+                   dB < 90 ? "orangered" :
+                   dB < 100 ? "red" : "darkred";
         }
-        
-        function addHexbinLayer() {
-            var hexbinLayer = L.hexbinLayer({ radius: 30, opacity: 0.6 }).addTo(map);
-            hexbinLayer.data(laermDaten.map(d => ({ lat: d.lat, lng: d.lng, value: d.value })))
-                      .colorScale(getColor)
-                      .render();
+
+        // 📌 Marker in Hexagon hinzufügen
+        function addHexagon(lat, lng, value, name) {
+            let hexKey = getHexagonKey(lat, lng);
+            let timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+            if (hexagons[hexKey]) {
+                let hex = hexagons[hexKey];
+                hex.values.push(value);
+                hex.names.push(name);
+                hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
+                hex.marker.setStyle({ fillColor: getColor(hex.avgValue) });
+                hex.marker.setPopupContent(`Lärmpegel: ${hex.avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${hex.names.join(", ")}`);
+            } else {
+                let avgValue = value;
+                let marker = L.circleMarker([lat, lng], {
+                    radius: 10,
+                    fillColor: getColor(avgValue),
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map).bindPopup(`Lärmpegel: ${avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
+
+                hexagons[hexKey] = {
+                    lat, lng, values: [value], names: [name], avgValue, marker
+                };
+            }
         }
-        
+
+        // 📌 Daten in Firebase speichern
         function saveToFirebase(lat, lng, value, name) {
-            db.collection("laermDaten").add({ lat, lng, value, name, timestamp: new Date() });
+            db.collection("laermDaten").add({
+                lat: lat,
+                lng: lng,
+                value: value,
+                name: name,
+                timestamp: new Date().toISOString()
+            });
         }
-        
+
+        // 📌 Klick-Event zur Eingabe von Lärmdaten
         map.on('click', function(e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
-            var value = parseInt(prompt("Gib den Lärmpegel in dB ein (40-120):"));
-            if (!isNaN(value) && value >= 40 && value <= 120) {
-                var name = prompt("Gib den Jägernamen ein:");
-                if (name) {
-                    laermDaten.push({ lat, lng, value, name });
-                    saveToFirebase(lat, lng, value, name);
-                    addHexbinLayer();
+            var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
+
+            if (value !== null) {
+                value = parseInt(value);
+                if (!isNaN(value) && value >= 40 && value <= 120) {
+                    var name = prompt("Gib den Jägernamen ein:");
+                    if (name !== null && name.trim() !== "") {
+                        addHexagon(lat, lng, value, name);
+                        saveToFirebase(lat, lng, value, name);
+                    } else {
+                        alert("Bitte einen gültigen Jägernamen eingeben.");
+                    }
+                } else {
+                    alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
                 }
             }
         });
-        
-        function exportCSV() {
-            let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Value,Name\n";
-            laermDaten.forEach(d => {
-                csvContent += `${d.lat},${d.lng},${d.value},${d.name}\n`;
+
+        // 📌 CSV Export Funktion
+        document.getElementById("export-btn").addEventListener("click", function() {
+            let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Lärmpegel,Jäger,Timestamp\n";
+            
+            db.collection("laermDaten").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    let data = doc.data();
+                    csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
+                });
+
+                let encodedUri = encodeURI(csvContent);
+                let link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "laermDaten.csv");
+                document.body.appendChild(link);
+                link.click();
             });
-            var encodedUri = encodeURI(csvContent);
-            var link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "laermdaten.csv");
-            document.body.appendChild(link);
-            link.click();
-        }
+        });
+
     </script>
 </body>
 </html>

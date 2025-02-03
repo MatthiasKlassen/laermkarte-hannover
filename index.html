@@ -8,17 +8,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
-    <script src="https://unpkg.com/leaflet.hexbin@2.0.2/leaflet.hexbin.js"></script>
+    <script src="https://unpkg.com/d3-hexbin"></script>
     <style>
         #map { height: 1000px; width: 100%; }
-        #time-container {
-            text-align: center;
-            margin-top: 10px;
-        }
-        #time-slider {
-            width: 300px;
-        }
+        #time-container { text-align: center; margin-top: 10px; }
+        #time-slider { width: 300px; }
     </style>
 </head>
 <body>
@@ -28,68 +22,71 @@
         <label for="time-slider">Uhrzeit:</label>
         <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
         <span id="slider-label">00:00</span>
+        <button onclick="exportCSV()">Daten als CSV exportieren</button>
     </div>
-    <button onclick="exportCSV()">CSV Export</button>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
             authDomain: "laermjaeger.firebaseapp.com",
             projectId: "laermjaeger",
-            storageBucket: "laermjaeger.appspot.com",
+            storageBucket: "laermjaeger.firebasestorage.app",
             messagingSenderId: "738314658200",
             appId: "1:738314658200:web:9557a02160883849b78bed",
             measurementId: "G-1M823BECWK"
         };
+        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const storage = firebase.storage();
-
+        
         var map = L.map('map').setView([52.3759, 9.7320], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
-
-        var hexLayer = L.hexbinLayer({
-            radius: 50,
-            opacity: 0.6,
-            colorScaleExtent: [40, 120],
-            colorScale: d3.scaleSequential(d3.interpolateYlOrRd)
-        }).addTo(map);
-
+        
         var laermDaten = [];
-
-        function addMeasurement(lat, lng, value, name) {
-            db.collection("measurements").add({
-                lat, lng, value, name, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => console.log("Daten gespeichert"));
+        
+        function getColor(dB) {
+            return dB < 50 ? "green" : dB < 60 ? "yellowgreen" : dB < 70 ? "yellow" : dB < 80 ? "orange" : dB < 90 ? "orangered" : dB < 100 ? "red" : "darkred";
         }
-
+        
+        function addHexbinLayer() {
+            var hexbinLayer = L.hexbinLayer({ radius: 30, opacity: 0.6 }).addTo(map);
+            hexbinLayer.data(laermDaten.map(d => ({ lat: d.lat, lng: d.lng, value: d.value })))
+                      .colorScale(getColor)
+                      .render();
+        }
+        
+        function saveToFirebase(lat, lng, value, name) {
+            db.collection("laermDaten").add({ lat, lng, value, name, timestamp: new Date() });
+        }
+        
+        map.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            var value = parseInt(prompt("Gib den Lärmpegel in dB ein (40-120):"));
+            if (!isNaN(value) && value >= 40 && value <= 120) {
+                var name = prompt("Gib den Jägernamen ein:");
+                if (name) {
+                    laermDaten.push({ lat, lng, value, name });
+                    saveToFirebase(lat, lng, value, name);
+                    addHexbinLayer();
+                }
+            }
+        });
+        
         function exportCSV() {
-            let csvContent = "data:text/csv;charset=utf-8,Lat,Lng,Value,Name,Timestamp\n";
-            laermDaten.forEach(data => {
-                csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
+            let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Value,Name\n";
+            laermDaten.forEach(d => {
+                csvContent += `${d.lat},${d.lng},${d.value},${d.name}\n`;
             });
             var encodedUri = encodeURI(csvContent);
             var link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "laerm_daten.csv");
+            link.setAttribute("download", "laermdaten.csv");
             document.body.appendChild(link);
             link.click();
         }
-
-        map.on('click', function(e) {
-            var lat = e.latlng.lat;
-            var lng = e.latlng.lng;
-            var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-            if (value !== null && !isNaN(value) && value >= 40 && value <= 120) {
-                var name = prompt("Gib den Jägernamen ein:");
-                if (name) {
-                    addMeasurement(lat, lng, value, name);
-                    laermDaten.push({ lat, lng, value, name, timestamp: new Date().toISOString() });
-                    hexLayer.data(laermDaten);
-                }
-            }
-        });
     </script>
 </body>
 </html>

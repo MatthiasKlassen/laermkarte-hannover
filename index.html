@@ -81,7 +81,7 @@
                         }).addTo(map).bindPopup(`Lärmpegel: ${avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
 
                         hexagons[hexKey] = {
-                            lat, lng, values: [value], names: [name], avgValue, marker
+                            lat, lng, values: [value], names: [name], avgValue, marker, timestamp
                         };
                     }
                 }
@@ -111,12 +111,15 @@
                 loadLaermData();
 
                 // Zeitregler anpassen
-                document.getElementById('time-slider').addEventListener('input', function() {
+                const timeSlider = document.getElementById('time-slider');
+                const timeLabel = document.getElementById('slider-label');
+
+                timeSlider.addEventListener('input', function() {
                     let selectedTime = this.value;
                     let formattedTime = `${selectedTime}:00`;
-                    document.getElementById('slider-label').innerText = formattedTime;
+                    timeLabel.innerText = formattedTime;
 
-                    // Filter auf die angezeigten Marker anwenden basierend auf der Zeit
+                    // Filter auf die angezeigten Marker anwenden basierend auf der Stunde
                     Object.values(hexagons).forEach((hex) => {
                         let hexTime = new Date(hex.timestamp).getHours();
                         if (hexTime === parseInt(selectedTime)) {
@@ -156,20 +159,17 @@
     </script>
 
     <style>
-        #map { height: 100vh; width: 100%; }
+        #map { height: 90vh; width: 100%; position: relative; }
         #time-container {
-            text-align: center;
-            margin-top: 10px;
-        }
-        #time-slider { width: 300px; }
-        #export-btn {
-            margin-top: 10px;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background-color: white;
             padding: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
+            border-radius: 5px;
         }
+        #time-slider { width: 200px; }
     </style>
 </head>
 <body>

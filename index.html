@@ -31,9 +31,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Sicherstellen, dass das DOM geladen ist
         document.addEventListener('DOMContentLoaded', function() {
-            // Sicherstellen, dass das #map-Element existiert
             var mapElement = document.getElementById('map');
             if (mapElement) {
                 // Karte initialisieren
@@ -61,9 +59,8 @@
                            dB < 100 ? "red" : "darkred";
                 }
 
-                function addHexagon(lat, lng, value, name) {
+                function addHexagon(lat, lng, value, name, timestamp) {
                     let hexKey = getHexagonKey(lat, lng);
-                    let timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
                     if (hexagons[hexKey]) {
                         let hex = hexagons[hexKey];
@@ -89,6 +86,7 @@
                     }
                 }
 
+                // Lärmdaten speichern
                 async function saveLaermData(lat, lng, value, name) {
                     try {
                         await addDoc(collection(db, "laermDaten"), {
@@ -101,19 +99,35 @@
                     }
                 }
 
+                // Lärmdaten aus Firestore laden
                 async function loadLaermData() {
-                    try {
-                        const querySnapshot = await getDocs(collection(db, "laermDaten"));
-                        querySnapshot.forEach((doc) => {
-                            console.log(doc.id, " => ", doc.data());
-                        });
-                    } catch (error) {
-                        console.error("❌ Fehler beim Abrufen:", error);
-                    }
+                    const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                    querySnapshot.forEach((doc) => {
+                        let data = doc.data();
+                        addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
+                    });
                 }
 
                 loadLaermData();
 
+                // Zeitregler anpassen
+                document.getElementById('time-slider').addEventListener('input', function() {
+                    let selectedTime = this.value;
+                    let formattedTime = `${selectedTime}:00`;
+                    document.getElementById('slider-label').innerText = formattedTime;
+
+                    // Filter auf die angezeigten Marker anwenden basierend auf der Zeit
+                    Object.values(hexagons).forEach((hex) => {
+                        let hexTime = new Date(hex.timestamp).getHours();
+                        if (hexTime === parseInt(selectedTime)) {
+                            hex.marker.addTo(map);
+                        } else {
+                            map.removeLayer(hex.marker);
+                        }
+                    });
+                });
+
+                // Klick-Event zur Eingabe von Lärmdaten
                 map.on('click', function(e) {
                     var lat = e.latlng.lat;
                     var lng = e.latlng.lng;
@@ -124,7 +138,7 @@
                         if (!isNaN(value) && value >= 40 && value <= 120) {
                             var name = prompt("Gib den Jägernamen ein:");
                             if (name !== null && name.trim() !== "") {
-                                addHexagon(lat, lng, value, name);
+                                addHexagon(lat, lng, value, name, new Date().toISOString());
                                 saveLaermData(lat, lng, value, name);
                             } else {
                                 alert("Bitte einen gültigen Jägernamen eingeben.");
@@ -135,41 +149,39 @@
                     }
                 });
 
-                document.getElementById("export-btn").addEventListener("click", function() {
-                    let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Lärmpegel,Jäger,Timestamp\n";
-                    
-                    collection(db, "laermDaten").get().then((querySnapshot) => {
-                        querySnapshot.forEach((doc) => {
-                            let data = doc.data();
-                            csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
-                        });
-
-                        let encodedUri = encodeURI(csvContent);
-                        let link = document.createElement("a");
-                        link.setAttribute("href", encodedUri);
-                        link.setAttribute("download", "laermDaten.csv");
-                        document.body.appendChild(link);
-                        link.click();
-                    });
-                });
-
             } else {
                 console.error('Das #map-Element konnte nicht gefunden werden.');
             }
         });
     </script>
+
+    <style>
+        #map { height: 100vh; width: 100%; }
+        #time-container {
+            text-align: center;
+            margin-top: 10px;
+        }
+        #time-slider { width: 300px; }
+        #export-btn {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
 
     <!-- Karte Container -->
-    <div id="map" style="height: 800px; width: 100%;"></div>
+    <div id="map"></div>
 
     <div id="time-container">
         <label for="time-slider">Uhrzeit:</label>
         <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
         <span id="slider-label">00:00</span>
-        <button id="export-btn">CSV Export</button>
     </div>
 
 </body>

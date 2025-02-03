@@ -31,124 +31,146 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Sicherstellen, dass das DOM geladen ist
         document.addEventListener('DOMContentLoaded', function() {
-            // Karte initialisieren
-            var map = L.map('map').setView([52.3759, 9.7320], 12); 
+            // Sicherstellen, dass das #map-Element existiert
+            var mapElement = document.getElementById('map');
+            if (mapElement) {
+                // Karte initialisieren
+                var map = L.map('map').setView([52.3759, 9.7320], 12); 
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
 
-            function getHexagonKey(lat, lng) {
-                let hexSize = 0.0015;
-                let hexLat = Math.round(lat / hexSize) * hexSize;
-                let hexLng = Math.round(lng / hexSize) * hexSize;
-                return `${hexLat},${hexLng}`;
-            }
-
-            var hexagons = {};
-
-            function getColor(dB) {
-                return dB < 50 ? "green" :
-                       dB < 60 ? "yellowgreen" :
-                       dB < 70 ? "yellow" :
-                       dB < 80 ? "orange" :
-                       dB < 90 ? "orangered" :
-                       dB < 100 ? "red" : "darkred";
-            }
-
-            function addHexagon(lat, lng, value, name) {
-                let hexKey = getHexagonKey(lat, lng);
-                let timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-                if (hexagons[hexKey]) {
-                    let hex = hexagons[hexKey];
-                    hex.values.push(value);
-                    hex.names.push(name);
-                    hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
-                    hex.marker.setStyle({ fillColor: getColor(hex.avgValue) });
-                    hex.marker.setPopupContent(`Lärmpegel: ${hex.avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${hex.names.join(", ")}`);
-                } else {
-                    let avgValue = value;
-                    let marker = L.circleMarker([lat, lng], {
-                        radius: 10,
-                        fillColor: getColor(avgValue),
-                        color: "#000",
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).addTo(map).bindPopup(`Lärmpegel: ${avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
-
-                    hexagons[hexKey] = {
-                        lat, lng, values: [value], names: [name], avgValue, marker
-                    };
+                function getHexagonKey(lat, lng) {
+                    let hexSize = 0.0015;
+                    let hexLat = Math.round(lat / hexSize) * hexSize;
+                    let hexLng = Math.round(lng / hexSize) * hexSize;
+                    return `${hexLat},${hexLng}`;
                 }
-            }
 
-            async function saveLaermData(lat, lng, value, name) {
-                try {
-                    await addDoc(collection(db, "laermDaten"), {
-                        lat, lng, value, name,
-                        timestamp: new Date().toISOString()
-                    });
-                    console.log("✅ Lärmdaten gespeichert!");
-                } catch (error) {
-                    console.error("❌ Fehler beim Speichern:", error);
+                var hexagons = {};
+
+                function getColor(dB) {
+                    return dB < 50 ? "green" :
+                           dB < 60 ? "yellowgreen" :
+                           dB < 70 ? "yellow" :
+                           dB < 80 ? "orange" :
+                           dB < 90 ? "orangered" :
+                           dB < 100 ? "red" : "darkred";
                 }
-            }
 
-            async function loadLaermData() {
-                try {
-                    const querySnapshot = await getDocs(collection(db, "laermDaten"));
-                    querySnapshot.forEach((doc) => {
-                        console.log(doc.id, " => ", doc.data());
-                    });
-                } catch (error) {
-                    console.error("❌ Fehler beim Abrufen:", error);
-                }
-            }
+                function addHexagon(lat, lng, value, name) {
+                    let hexKey = getHexagonKey(lat, lng);
+                    let timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-            loadLaermData();
-
-            map.on('click', function(e) {
-                var lat = e.latlng.lat;
-                var lng = e.latlng.lng;
-                var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-
-                if (value !== null) {
-                    value = parseInt(value);
-                    if (!isNaN(value) && value >= 40 && value <= 120) {
-                        var name = prompt("Gib den Jägernamen ein:");
-                        if (name !== null && name.trim() !== "") {
-                            addHexagon(lat, lng, value, name);
-                            saveLaermData(lat, lng, value, name);
-                        } else {
-                            alert("Bitte einen gültigen Jägernamen eingeben.");
-                        }
+                    if (hexagons[hexKey]) {
+                        let hex = hexagons[hexKey];
+                        hex.values.push(value);
+                        hex.names.push(name);
+                        hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
+                        hex.marker.setStyle({ fillColor: getColor(hex.avgValue) });
+                        hex.marker.setPopupContent(`Lärmpegel: ${hex.avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${hex.names.join(", ")}`);
                     } else {
-                        alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+                        let avgValue = value;
+                        let marker = L.circleMarker([lat, lng], {
+                            radius: 10,
+                            fillColor: getColor(avgValue),
+                            color: "#000",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map).bindPopup(`Lärmpegel: ${avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
+
+                        hexagons[hexKey] = {
+                            lat, lng, values: [value], names: [name], avgValue, marker
+                        };
                     }
                 }
-            });
 
-            document.getElementById("export-btn").addEventListener("click", function() {
-                let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Lärmpegel,Jäger,Timestamp\n";
-                
-                collection(db, "laermDaten").get().then((querySnapshot) => {
-                    querySnapshot.forEach((doc) => {
-                        let data = doc.data();
-                        csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
-                    });
+                async function saveLaermData(lat, lng, value, name) {
+                    try {
+                        await addDoc(collection(db, "laermDaten"), {
+                            lat, lng, value, name,
+                            timestamp: new Date().toISOString()
+                        });
+                        console.log("✅ Lärmdaten gespeichert!");
+                    } catch (error) {
+                        console.error("❌ Fehler beim Speichern:", error);
+                    }
+                }
 
-                    let encodedUri = encodeURI(csvContent);
-                    let link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "laermDaten.csv");
-                    document.body.appendChild(link);
-                    link.click();
+                async function loadLaermData() {
+                    try {
+                        const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                        querySnapshot.forEach((doc) => {
+                            console.log(doc.id, " => ", doc.data());
+                        });
+                    } catch (error) {
+                        console.error("❌ Fehler beim Abrufen:", error);
+                    }
+                }
+
+                loadLaermData();
+
+                map.on('click', function(e) {
+                    var lat = e.latlng.lat;
+                    var lng = e.latlng.lng;
+                    var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
+
+                    if (value !== null) {
+                        value = parseInt(value);
+                        if (!isNaN(value) && value >= 40 && value <= 120) {
+                            var name = prompt("Gib den Jägernamen ein:");
+                            if (name !== null && name.trim() !== "") {
+                                addHexagon(lat, lng, value, name);
+                                saveLaermData(lat, lng, value, name);
+                            } else {
+                                alert("Bitte einen gültigen Jägernamen eingeben.");
+                            }
+                        } else {
+                            alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+                        }
+                    }
                 });
-            });
+
+                document.getElementById("export-btn").addEventListener("click", function() {
+                    let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Lärmpegel,Jäger,Timestamp\n";
+                    
+                    collection(db, "laermDaten").get().then((querySnapshot) => {
+                        querySnapshot.forEach((doc) => {
+                            let data = doc.data();
+                            csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
+                        });
+
+                        let encodedUri = encodeURI(csvContent);
+                        let link = document.createElement("a");
+                        link.setAttribute("href", encodedUri);
+                        link.setAttribute("download", "laermDaten.csv");
+                        document.body.appendChild(link);
+                        link.click();
+                    });
+                });
+
+            } else {
+                console.error('Das #map-Element konnte nicht gefunden werden.');
+            }
         });
     </script>
+</head>
+<body>
+    <h2>Lärmkarte Hannover</h2>
+
+    <!-- Karte Container -->
+    <div id="map" style="height: 800px; width: 100%;"></div>
+
+    <div id="time-container">
+        <label for="time-slider">Uhrzeit:</label>
+        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+        <span id="slider-label">00:00</span>
+        <button id="export-btn">CSV Export</button>
+    </div>
+
 </body>
 </html>

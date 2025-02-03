@@ -6,6 +6,10 @@
     <title>Lärmkarte Hannover</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+    <script src="https://unpkg.com/leaflet.hexbin@2.0.2/leaflet.hexbin.js"></script>
     <style>
         #map { height: 1000px; width: 100%; }
         #time-container {
@@ -19,143 +23,73 @@
 </head>
 <body>
     <h2>Lärmkarte Hannover</h2>
-
     <div id="map"></div>
-
-    <!-- Zeitregler unter der Karte -->
     <div id="time-container">
         <label for="time-slider">Uhrzeit:</label>
         <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
         <span id="slider-label">00:00</span>
     </div>
-
+    <button onclick="exportCSV()">CSV Export</button>
     <script>
-        // 1. Karte initialisieren
-        var map = L.map('map').setView([52.3759, 9.7320], 12); // Hannover Koordinaten
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
+            authDomain: "laermjaeger.firebaseapp.com",
+            projectId: "laermjaeger",
+            storageBucket: "laermjaeger.appspot.com",
+            messagingSenderId: "738314658200",
+            appId: "1:738314658200:web:9557a02160883849b78bed",
+            measurementId: "G-1M823BECWK"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
 
-        // 2. OpenStreetMap als Basiskarte hinzufügen
+        var map = L.map('map').setView([52.3759, 9.7320], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // 3. Lärmdaten speichern
-        var laermDaten = JSON.parse(localStorage.getItem('laermDaten')) || [];
+        var hexLayer = L.hexbinLayer({
+            radius: 50,
+            opacity: 0.6,
+            colorScaleExtent: [40, 120],
+            colorScale: d3.scaleSequential(d3.interpolateYlOrRd)
+        }).addTo(map);
 
-        // 4. Funktion zur Farbskalierung basierend auf dB-Werten
-        function getColor(dB) {
-            return dB < 50 ? "green" :
-                   dB < 60 ? "yellowgreen" :
-                   dB < 70 ? "yellow" :
-                   dB < 80 ? "orange" :
-                   dB < 90 ? "orangered" :
-                   dB < 100 ? "red" : "darkred";
+        var laermDaten = [];
+
+        function addMeasurement(lat, lng, value, name) {
+            db.collection("measurements").add({
+                lat, lng, value, name, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => console.log("Daten gespeichert"));
         }
 
-        // 5. Funktion zur Überprüfung und Berechnung des Mittelwerts
-        function getExistingMarker(lat, lng) {
-            var tolerance = 0.0005;
-            for (var i = 0; i < laermDaten.length; i++) {
-                var data = laermDaten[i];
-                var distance = Math.sqrt(Math.pow(lat - data.lat, 2) + Math.pow(lng - data.lng, 2));
-                if (distance < tolerance) {
-                    return data; // Rückgabe des existierenden Markers, wenn er im Toleranzbereich liegt
-                }
-            }
-            return null; // Kein Marker in der Nähe gefunden
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Lat,Lng,Value,Name,Timestamp\n";
+            laermDaten.forEach(data => {
+                csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
+            });
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "laerm_daten.csv");
+            document.body.appendChild(link);
+            link.click();
         }
 
-        // 6. Marker hinzufügen und färben
-        function addMarker(lat, lng, value, name) {
-            var existingMarker = getExistingMarker(lat, lng);
-            var timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-            if (existingMarker) {
-                // Mittelwert berechnen und Namen zusammenfassen
-                var newValue = Math.round((existingMarker.value + value) / 2);
-                existingMarker.value = newValue;
-                existingMarker.timestamp = timestamp; // Aktualisiere den Zeitstempel
-                existingMarker.name = existingMarker.name + ", " + name; // Jägernamen zusammenfassen
-                existingMarker.marker.setStyle({
-                    fillColor: getColor(newValue),
-                    radius: 8
-                });
-                existingMarker.marker.setPopupContent(`Lärmpegel: ${newValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${existingMarker.name}`);
-            } else {
-                var color = getColor(value);
-                var marker = L.circleMarker([lat, lng], {
-                    radius: 8,
-                    fillColor: color,
-                    color: "#000",
-                    weight: 1,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                }).addTo(map).bindPopup(`Lärmpegel: ${value} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
-
-                laermDaten.push({ lat, lng, value, timestamp, name, marker });
-                saveData(); // Daten speichern
-            }
-        }
-
-        // 7. Funktion zum Speichern der Lärmdaten im localStorage
-        function saveData() {
-            localStorage.setItem('laermDaten', JSON.stringify(laermDaten));
-        }
-
-        // 8. Klick-Event zum Hinzufügen von Lärmdaten
         map.on('click', function(e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
             var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-
-            if (value !== null) {
-                value = parseInt(value);
-                if (!isNaN(value) && value >= 40 && value <= 120) {
-                    var name = prompt("Gib den Jägernamen ein:");
-                    if (name !== null && name.trim() !== "") {
-                        addMarker(lat, lng, value, name);
-                    } else {
-                        alert("Bitte einen gültigen Jägernamen eingeben.");
-                    }
-                } else {
-                    alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+            if (value !== null && !isNaN(value) && value >= 40 && value <= 120) {
+                var name = prompt("Gib den Jägernamen ein:");
+                if (name) {
+                    addMeasurement(lat, lng, value, name);
+                    laermDaten.push({ lat, lng, value, name, timestamp: new Date().toISOString() });
+                    hexLayer.data(laermDaten);
                 }
             }
         });
-
-        // 9. Schieberegler zur Filterung nach Zeit
-        var timeSlider = document.getElementById('time-slider');
-        var sliderLabel = document.getElementById('slider-label');
-
-        timeSlider.addEventListener('input', function() {
-            var selectedHour = parseInt(timeSlider.value);
-            sliderLabel.textContent = `${String(selectedHour).padStart(2, '0')}:00`;
-
-            // Markierungen je nach ausgewählter Zeit ein- oder ausblenden
-            laermDaten.forEach(function(data) {
-                var markerHour = parseInt(data.timestamp.split(":")[0]); // Stunden extrahieren
-                if (markerHour === selectedHour) {
-                    data.marker.addTo(map);
-                } else {
-                    map.removeLayer(data.marker);
-                }
-            });
-        });
-
-        // 10. Markierungen beim Laden der Seite wiederherstellen
-        laermDaten.forEach(function(data) {
-            var color = getColor(data.value);
-            var marker = L.circleMarker([data.lat, data.lng], {
-                radius: 8,
-                fillColor: color,
-                color: "#000",
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).addTo(map).bindPopup(`Lärmpegel: ${data.value} dB<br>Zeit: ${data.timestamp}<br>Jäger: ${data.name}`);
-
-            data.marker = marker;
-        });
-
     </script>
 </body>
 </html>

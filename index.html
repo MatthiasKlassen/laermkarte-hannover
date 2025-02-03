@@ -8,9 +8,10 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <!-- Leaflet & Firebase -->
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- Firebase Module -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
@@ -50,7 +51,7 @@
         <button id="export-btn">CSV Export</button>
     </div>
 
-    <script>
+    <script type="module">
         // Firebase-Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",

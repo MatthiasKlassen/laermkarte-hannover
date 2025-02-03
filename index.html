@@ -10,70 +10,41 @@
     
     <!-- Leaflet & Firebase -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
-    <style>
-        #map { height: 800px; width: 100%; }
-        #time-container {
-            text-align: center;
-            margin-top: 10px;
-        }
-        #time-slider { width: 300px; }
-        #export-btn {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-    <h2>Lärmkarte Hannover</h2>
+        // Firebase-Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
+            authDomain: "laermjaeger.firebaseapp.com",
+            projectId: "laermjaeger",
+            storageBucket: "laermjaeger.appspot.com",  
+            messagingSenderId: "738314658200",
+            appId: "1:738314658200:web:bfadd216c180ebdcb78bed",
+            measurementId: "G-JQQ4CXR7GD"
+        };
 
-    <div id="map"></div>
+        // Firebase initialisieren
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    <div id="time-container">
-        <label for="time-slider">Uhrzeit:</label>
-        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
-        <span id="slider-label">00:00</span>
-        <button id="export-btn">CSV Export</button>
-    </div>
-
-// Firebase-Konfiguration
-  const firebaseConfig = {
-    apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
-    authDomain: "laermjaeger.firebaseapp.com",
-    projectId: "laermjaeger",
-    storageBucket: "laermjaeger.appspot.com",  // Korrektur hier
-    messagingSenderId: "738314658200",
-    appId: "1:738314658200:web:bfadd216c180ebdcb78bed",
-    measurementId: "G-JQQ4CXR7GD"
-  };
-
-      // Firebase initialisieren
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app); // Firestore initialisieren
-    
-        // 🔍 Karte initialisieren
+        // Karte initialisieren
         var map = L.map('map').setView([52.3759, 9.7320], 12); 
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // 📌 HEXAGON-GRID FUNKTION (150x150m)
         function getHexagonKey(lat, lng) {
-            let hexSize = 0.0015; // Etwa 150m
+            let hexSize = 0.0015;
             let hexLat = Math.round(lat / hexSize) * hexSize;
             let hexLng = Math.round(lng / hexSize) * hexSize;
             return `${hexLat},${hexLng}`;
         }
 
-        var hexagons = {}; // Speichert alle Hexagons
+        var hexagons = {};
 
         function getColor(dB) {
             return dB < 50 ? "green" :
@@ -84,7 +55,6 @@
                    dB < 100 ? "red" : "darkred";
         }
 
-        // 📌 Marker in Hexagon hinzufügen
         function addHexagon(lat, lng, value, name) {
             let hexKey = getHexagonKey(lat, lng);
             let timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -113,36 +83,31 @@
             }
         }
 
-  // 🔹 Beispiel: Lärmdaten speichern
-  async function saveLaermData(lat, lng, value, name) {
-    try {
-      await addDoc(collection(db, "laermDaten"), {
-        lat, lng, value, name,
-        timestamp: new Date().toISOString()
-      });
-      console.log("✅ Lärmdaten gespeichert!");
-    } catch (error) {
-      console.error("❌ Fehler beim Speichern:", error);
-    }
-  }
+        async function saveLaermData(lat, lng, value, name) {
+            try {
+                await addDoc(collection(db, "laermDaten"), {
+                    lat, lng, value, name,
+                    timestamp: new Date().toISOString()
+                });
+                console.log("✅ Lärmdaten gespeichert!");
+            } catch (error) {
+                console.error("❌ Fehler beim Speichern:", error);
+            }
+        }
 
-  // 🔹 Beispiel: Lärmdaten abrufen
-  async function loadLaermData() {
-    try {
-      const querySnapshot = await getDocs(collection(db, "laermDaten"));
-      querySnapshot.forEach((doc) => {
-        console.log(doc.id, " => ", doc.data());
-      });
-    } catch (error) {
-      console.error("❌ Fehler beim Abrufen:", error);
-    }
-  }
+        async function loadLaermData() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                querySnapshot.forEach((doc) => {
+                    console.log(doc.id, " => ", doc.data());
+                });
+            } catch (error) {
+                console.error("❌ Fehler beim Abrufen:", error);
+            }
+        }
 
-  // Teste das Laden von Daten beim Start
-  loadLaermData();
-</script>
+        loadLaermData();
 
-        // 📌 Klick-Event zur Eingabe von Lärmdaten
         map.on('click', function(e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
@@ -154,7 +119,7 @@
                     var name = prompt("Gib den Jägernamen ein:");
                     if (name !== null && name.trim() !== "") {
                         addHexagon(lat, lng, value, name);
-                        saveToFirebase(lat, lng, value, name);
+                        saveLaermData(lat, lng, value, name);
                     } else {
                         alert("Bitte einen gültigen Jägernamen eingeben.");
                     }
@@ -164,11 +129,10 @@
             }
         });
 
-        // 📌 CSV Export Funktion
         document.getElementById("export-btn").addEventListener("click", function() {
             let csvContent = "data:text/csv;charset=utf-8,Latitude,Longitude,Lärmpegel,Jäger,Timestamp\n";
             
-            db.collection("laermDaten").get().then((querySnapshot) => {
+            collection(db, "laermDaten").get().then((querySnapshot) => {
                 querySnapshot.forEach((doc) => {
                     let data = doc.data();
                     csvContent += `${data.lat},${data.lng},${data.value},${data.name},${data.timestamp}\n`;
@@ -182,7 +146,6 @@
                 link.click();
             });
         });
-
     </script>
 </body>
 </html>

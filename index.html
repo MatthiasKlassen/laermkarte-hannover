@@ -159,7 +159,15 @@
     </script>
 
     <style>
-        #map { height: 90vh; width: 100%; position: relative; }
+        /* Karte: Full-HD-Auflösung und Abstand zur Überschrift */
+        #map { 
+            height: 90vh; 
+            width: 100%; 
+            position: relative; 
+            margin-top: 60px; /* Abstand nach oben, damit die Überschrift sichtbar bleibt */
+        }
+
+        /* Zeitregler oben links */
         #time-container {
             position: absolute;
             top: 10px;
@@ -169,7 +177,16 @@
             padding: 10px;
             border-radius: 5px;
         }
-        #time-slider { width: 200px; }
+
+        #time-slider { 
+            width: 200px; 
+        }
+
+        /* Überschrift */
+        h2 {
+            text-align: center;
+            margin-top: 20px; /* Abstand nach oben */
+        }
     </style>
 </head>
 <body>
@@ -178,6 +195,7 @@
     <!-- Karte Container -->
     <div id="map"></div>
 
+    <!-- Zeitregler oben links -->
     <div id="time-container">
         <label for="time-slider">Uhrzeit:</label>
         <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />

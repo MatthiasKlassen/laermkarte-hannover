@@ -10,8 +10,9 @@
     
     <!-- Leaflet & Firebase -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
 
     <style>
         #map { height: 800px; width: 100%; }
@@ -42,22 +43,21 @@
         <button id="export-btn">CSV Export</button>
     </div>
 
-    <script>
-        // 🔥 Firebase Konfiguration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
-            authDomain: "laermjaeger.firebaseapp.com",
-            projectId: "laermjaeger",
-            storageBucket: "laermjaeger.firebasestorage.app",
-            messagingSenderId: "738314658200",
-            appId: "1:738314658200:web:9557a02160883849b78bed",
-            measurementId: "G-1M823BECWK"
-        };
-        
-        // Firebase Initialisieren
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+// Firebase-Konfiguration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
+    authDomain: "laermjaeger.firebaseapp.com",
+    projectId: "laermjaeger",
+    storageBucket: "laermjaeger.appspot.com",  // Korrektur hier
+    messagingSenderId: "738314658200",
+    appId: "1:738314658200:web:bfadd216c180ebdcb78bed",
+    measurementId: "G-JQQ4CXR7GD"
+  };
 
+      // Firebase initialisieren
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app); // Firestore initialisieren
+    
         // 🔍 Karte initialisieren
         var map = L.map('map').setView([52.3759, 9.7320], 12); 
 
@@ -113,16 +113,34 @@
             }
         }
 
-        // 📌 Daten in Firebase speichern
-        function saveToFirebase(lat, lng, value, name) {
-            db.collection("laermDaten").add({
-                lat: lat,
-                lng: lng,
-                value: value,
-                name: name,
-                timestamp: new Date().toISOString()
-            });
-        }
+  // 🔹 Beispiel: Lärmdaten speichern
+  async function saveLaermData(lat, lng, value, name) {
+    try {
+      await addDoc(collection(db, "laermDaten"), {
+        lat, lng, value, name,
+        timestamp: new Date().toISOString()
+      });
+      console.log("✅ Lärmdaten gespeichert!");
+    } catch (error) {
+      console.error("❌ Fehler beim Speichern:", error);
+    }
+  }
+
+  // 🔹 Beispiel: Lärmdaten abrufen
+  async function loadLaermData() {
+    try {
+      const querySnapshot = await getDocs(collection(db, "laermDaten"));
+      querySnapshot.forEach((doc) => {
+        console.log(doc.id, " => ", doc.data());
+      });
+    } catch (error) {
+      console.error("❌ Fehler beim Abrufen:", error);
+    }
+  }
+
+  // Teste das Laden von Daten beim Start
+  loadLaermData();
+</script>
 
         // 📌 Klick-Event zur Eingabe von Lärmdaten
         map.on('click', function(e) {

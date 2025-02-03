@@ -11,47 +11,11 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Firebase Module -->
+    <!-- Firebase Modul -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
-    </script>
 
-    <style>
-        #map {
-            height: 800px;
-            width: 100%;
-        }
-        #time-container {
-            text-align: center;
-            margin-top: 10px;
-        }
-        #time-slider {
-            width: 300px;
-        }
-        #export-btn {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-    <h2>Lärmkarte Hannover</h2>
-
-    <div id="map"></div>
-
-    <div id="time-container">
-        <label for="time-slider">Uhrzeit:</label>
-        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
-        <span id="slider-label">00:00</span>
-        <button id="export-btn">CSV Export</button>
-    </div>
-
-    <script type="module">
         // Firebase-Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",

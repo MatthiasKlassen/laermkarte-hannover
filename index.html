@@ -9,10 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet-hexbins@1.0.0"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Hexbin Plugin -->
-    <script src="https://unpkg.com/leaflet-hexbin/leaflet-hexbin.js"></script>
 
     <!-- Firebase Modul -->
     <script type="module">
@@ -35,86 +32,172 @@
         const db = getFirestore(app);
 
         document.addEventListener('DOMContentLoaded', function() {
-            var map = L.map('map').setView([52.3759, 9.7320], 12); 
+            var mapElement = document.getElementById('map');
+            if (mapElement) {
+                // Karte initialisieren
+                var map = L.map('map').setView([52.3759, 9.7320], 12); 
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
 
-            // Farbskala für dB-Werte
-            function getColor(dB) {
-                return dB < 50 ? "#00FF00" :
-                       dB < 60 ? "#ADFF2F" :
-                       dB < 70 ? "#FFFF00" :
-                       dB < 80 ? "#FFA500" :
-                       dB < 90 ? "#FF4500" :
-                       dB < 100 ? "#FF0000" : "#8B0000";
-            }
+                var heatData = [];
 
-            // Hexbin-Layer hinzufügen
-            var hexLayer = L.hexbinLayer({
-                radius: 15,
-                opacity: 0.6,
-                duration: 500,
-                colorScaleExtent: [1, undefined],
-                radiusScaleExtent: [1, undefined],
-                colorRange: ['#00FF00', '#FF0000'],
-                radiusRange: [5, 15],
-                lng: d => d[0],
-                lat: d => d[1],
-                value: d => d[2]
-            }).addTo(map);
+                // Funktion zur Bestimmung der Farbe basierend auf dB-Wert
+                function getColor(dB) {
+                    return dB < 50 ? "green" :
+                           dB < 60 ? "yellowgreen" :
+                           dB < 70 ? "yellow" :
+                           dB < 80 ? "orange" :
+                           dB < 90 ? "orangered" :
+                           dB < 100 ? "red" : "darkred";
+                }
 
-            async function loadLaermData() {
-                const querySnapshot = await getDocs(collection(db, "laermDaten"));
-                let laermDaten = [];
-                querySnapshot.forEach((doc) => {
-                    let data = doc.data();
-                    laermDaten.push([data.lng, data.lat, data.value]);
-                });
-                hexLayer.data(laermDaten);
-            }
+                function addHeatPoint(lat, lng, value) {
+                    // Füge den Punkt zum HeatMap-Daten-Array hinzu
+                    heatData.push([lat, lng, value]);
+                }
 
-            loadLaermData();
-
-            // Klick-Event zur Eingabe von Lärmdaten
-            map.on('click', async function(e) {
-                var lat = e.latlng.lat;
-                var lng = e.latlng.lng;
-                var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-
-                if (value !== null) {
-                    value = parseInt(value);
-                    if (!isNaN(value) && value >= 40 && value <= 120) {
-                        var name = prompt("Gib den Jägernamen ein:");
-                        if (name !== null && name.trim() !== "") {
-                            await addDoc(collection(db, "laermDaten"), {
-                                lat, lng, value, name,
-                                timestamp: new Date().toISOString()
-                            });
-                            hexLayer.addData([[lng, lat, value]]);
-                        } else {
-                            alert("Bitte einen gültigen Jägernamen eingeben.");
-                        }
-                    } else {
-                        alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+                // Lärmdaten speichern
+                async function saveLaermData(lat, lng, value, name) {
+                    try {
+                        await addDoc(collection(db, "laermDaten"), {
+                            lat, lng, value, name,
+                            timestamp: new Date().toISOString()
+                        });
+                        console.log("✅ Lärmdaten gespeichert!");
+                    } catch (error) {
+                        console.error("❌ Fehler beim Speichern:", error);
                     }
                 }
-            });
+
+                // Lärmdaten aus Firestore laden
+                async function loadLaermData() {
+                    const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                    querySnapshot.forEach((doc) => {
+                        let data = doc.data();
+                        addHeatPoint(data.lat, data.lng, data.value);
+                    });
+
+                    // HeatLayer auf der Karte anzeigen
+                    var heatLayer = L.heatLayer(heatData, {
+                        radius: 20,
+                        blur: 15,
+                        gradient: {
+                            0.1: "green",
+                            0.2: "yellowgreen",
+                            0.3: "yellow",
+                            0.4: "orange",
+                            0.5: "orangered",
+                            0.6: "red",
+                            0.7: "darkred"
+                        }
+                    }).addTo(map);
+                }
+
+                loadLaermData();
+
+                // Zeitregler anpassen
+                const timeSlider = document.getElementById('time-slider');
+                const timeLabel = document.getElementById('slider-label');
+
+                timeSlider.addEventListener('input', function() {
+                    let selectedTime = this.value;
+                    let formattedTime = `${selectedTime}:00`;
+                    timeLabel.innerText = formattedTime;
+
+                    // Filter auf die angezeigten Heat-Punkte anwenden basierend auf der Stunde
+                    heatData = heatData.filter((point) => {
+                        let pointTime = new Date(point.timestamp).getHours();
+                        return pointTime === parseInt(selectedTime);
+                    });
+
+                    // Neues HeatLayer mit gefilterten Punkten hinzufügen
+                    var heatLayer = L.heatLayer(heatData, {
+                        radius: 20,
+                        blur: 15,
+                        gradient: {
+                            0.1: "green",
+                            0.2: "yellowgreen",
+                            0.3: "yellow",
+                            0.4: "orange",
+                            0.5: "orangered",
+                            0.6: "red",
+                            0.7: "darkred"
+                        }
+                    }).addTo(map);
+                });
+
+                // Klick-Event zur Eingabe von Lärmdaten
+                map.on('click', function(e) {
+                    var lat = e.latlng.lat;
+                    var lng = e.latlng.lng;
+                    var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
+
+                    if (value !== null) {
+                        value = parseInt(value);
+                        if (!isNaN(value) && value >= 40 && value <= 120) {
+                            var name = prompt("Gib den Jägernamen ein:");
+                            if (name !== null && name.trim() !== "") {
+                                addHeatPoint(lat, lng, value);
+                                saveLaermData(lat, lng, value, name);
+                            } else {
+                                alert("Bitte einen gültigen Jägernamen eingeben.");
+                            }
+                        } else {
+                            alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+                        }
+                    }
+                });
+
+            } else {
+                console.error('Das #map-Element konnte nicht gefunden werden.');
+            }
         });
     </script>
 
     <style>
+        /* Karte: Full-HD-Auflösung und Abstand zur Überschrift */
         #map { 
             height: 80vh; 
             width: 100%; 
             position: relative; 
-            margin-top: 60px;
+            margin-top: 60px; /* Abstand nach oben, damit die Überschrift sichtbar bleibt */
+        }
+
+        /* Zeitregler oben links */
+        #time-container {
+            position: center;
+            top: 40px;
+            z-index: 1000;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #time-slider { 
+            width: 200px; 
+        }
+
+        /* Überschrift */
+        h2 {
+            text-align: center;
+            margin-top: 20px; /* Abstand nach oben */
         }
     </style>
 </head>
 <body>
     <h1>Lärmkarte Hannover</h1>
+
+    <!-- Karte Container -->
     <div id="map"></div>
+
+    <!-- Zeitregler oben links -->
+    <div id="time-container">
+        <label for="time-slider">Uhrzeit:</label>
+        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+        <span id="slider-label">00:00</span>
+    </div>
+
 </body>
 </html>

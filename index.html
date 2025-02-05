@@ -56,6 +56,11 @@
                            dB < 100 ? "red" : "darkred";
                 }
 
+                // Funktion zur Bestimmung der Größe des Kreises basierend auf dB-Wert
+                function getRadius(dB) {
+                    return (dB - 40) / 2; // Werte zwischen 40 und 120, also eine Skalierung
+                }
+
                 function addHeatPoint(lat, lng, value) {
                     // Füge den Punkt zum HeatMap-Daten-Array hinzu
                     heatData.push([lat, lng, value]);
@@ -83,7 +88,21 @@
                     });
 
                     // HeatLayer auf der Karte anzeigen
-                    var heatLayer = L.heatLayer(heatData, {
+                    var heatLayer = L.heatLayer(heatData.map(point => {
+                        const lat = point[0];
+                        const lng = point[1];
+                        const value = point[2];
+
+                        return [
+                            lat, 
+                            lng, 
+                            value,  // Der Wert für dB (dies beeinflusst den Farbverlauf)
+                            {
+                                radius: getRadius(value),  // Dynamische Größe basierend auf dB
+                                color: getColor(value)      // Dynamische Farbe basierend auf dB
+                            }
+                        ];
+                    }), {
                         radius: 20,
                         blur: 15,
                         gradient: {

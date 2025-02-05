@@ -11,9 +11,6 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Leaflet.heat Erweiterung -->
-    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-
     <!-- Firebase Modul -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
@@ -34,6 +31,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Karte initialisieren
         document.addEventListener('DOMContentLoaded', function() {
             var mapElement = document.getElementById('map');
             if (mapElement) {
@@ -44,9 +42,15 @@
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
 
+                // Array für die Heatmap-Daten
                 var heatData = [];
 
-                // Funktion zur Bestimmung der Farbe basierend auf dB-Wert
+                // Funktion, um den Radius basierend auf dem dB-Wert zu berechnen
+                function getRadius(dB) {
+                    return (dB - 40) / 4; // Radius wird mit zunehmendem dB größer
+                }
+
+                // Funktion, um die Farbe basierend auf dem dB-Wert zu berechnen
                 function getColor(dB) {
                     return dB < 50 ? "green" :
                            dB < 60 ? "yellowgreen" :
@@ -56,27 +60,13 @@
                            dB < 100 ? "red" : "darkred";
                 }
 
-                // Funktion zur Bestimmung der Größe des Kreises basierend auf dB-Wert
-                function getRadius(dB) {
-                    return (dB - 40) / 2; // Werte zwischen 40 und 120, also eine Skalierung
-                }
-
+                // Funktion zum Hinzufügen von Punkten zur Heatmap
                 function addHeatPoint(lat, lng, value) {
-                    // Füge den Punkt zum HeatMap-Daten-Array hinzu
-                    heatData.push([lat, lng, value]);
-                }
-
-                // Lärmdaten speichern
-                async function saveLaermData(lat, lng, value, name) {
-                    try {
-                        await addDoc(collection(db, "laermDaten"), {
-                            lat, lng, value, name,
-                            timestamp: new Date().toISOString()
-                        });
-                        console.log("✅ Lärmdaten gespeichert!");
-                    } catch (error) {
-                        console.error("❌ Fehler beim Speichern:", error);
+                    if (isNaN(lat) || isNaN(lng) || lat === null || lng === null) {
+                        console.error("Ungültige Koordinaten:", lat, lng);
+                        return;
                     }
+                    heatData.push([lat, lng, value]);
                 }
 
                 // Lärmdaten aus Firestore laden
@@ -84,7 +74,16 @@
                     const querySnapshot = await getDocs(collection(db, "laermDaten"));
                     querySnapshot.forEach((doc) => {
                         let data = doc.data();
-                        addHeatPoint(data.lat, data.lng, data.value);
+                        let lat = data.lat;
+                        let lng = data.lng;
+                        let value = data.value;
+                        
+                        // Sicherstellen, dass lat und lng gültige Werte sind
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            addHeatPoint(lat, lng, value);
+                        } else {
+                            console.error("Ungültige Lärmdaten:", data);
+                        }
                     });
 
                     // HeatLayer auf der Karte anzeigen
@@ -119,37 +118,6 @@
 
                 loadLaermData();
 
-                // Zeitregler anpassen
-                const timeSlider = document.getElementById('time-slider');
-                const timeLabel = document.getElementById('slider-label');
-
-                timeSlider.addEventListener('input', function() {
-                    let selectedTime = this.value;
-                    let formattedTime = `${selectedTime}:00`;
-                    timeLabel.innerText = formattedTime;
-
-                    // Filter auf die angezeigten Heat-Punkte anwenden basierend auf der Stunde
-                    heatData = heatData.filter((point) => {
-                        let pointTime = new Date(point.timestamp).getHours();
-                        return pointTime === parseInt(selectedTime);
-                    });
-
-                    // Neues HeatLayer mit gefilterten Punkten hinzufügen
-                    var heatLayer = L.heatLayer(heatData, {
-                        radius: 20,
-                        blur: 15,
-                        gradient: {
-                            0.1: "green",
-                            0.2: "yellowgreen",
-                            0.3: "yellow",
-                            0.4: "orange",
-                            0.5: "orangered",
-                            0.6: "red",
-                            0.7: "darkred"
-                        }
-                    }).addTo(map);
-                });
-
                 // Klick-Event zur Eingabe von Lärmdaten
                 map.on('click', function(e) {
                     var lat = e.latlng.lat;
@@ -171,6 +139,19 @@
                         }
                     }
                 });
+
+                // Lärmdaten speichern
+                async function saveLaermData(lat, lng, value, name) {
+                    try {
+                        await addDoc(collection(db, "laermDaten"), {
+                            lat, lng, value, name,
+                            timestamp: new Date().toISOString()
+                        });
+                        console.log("✅ Lärmdaten gespeichert!");
+                    } catch (error) {
+                        console.error("❌ Fehler beim Speichern:", error);
+                    }
+                }
 
             } else {
                 console.error('Das #map-Element konnte nicht gefunden werden.');

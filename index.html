@@ -17,7 +17,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
-        // Firebase-Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
             authDomain: "laermjaeger.firebaseapp.com",
@@ -28,45 +27,34 @@
             measurementId: "G-JQQ4CXR7GD"
         };
 
-        // Firebase initialisieren
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         document.addEventListener('DOMContentLoaded', function() {
             var mapElement = document.getElementById('map');
             if (mapElement) {
-                // Karte initialisieren
                 var map = L.map('map').setView([52.3759, 9.7320], 12); 
-
+                
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
-
-                function getColor(dB) {
-                    return dB < 50 ? "green" :
-                           dB < 60 ? "yellowgreen" :
-                           dB < 70 ? "yellow" :
-                           dB < 80 ? "orange" :
-                           dB < 90 ? "orangered" :
-                           dB < 100 ? "red" : "darkred";
+                
+                let heatData = [];
+                let heatLayer = L.heatLayer([], { radius: 25, blur: 30, maxZoom: 17, gradient: {
+                    0.2: "green",
+                    0.4: "yellowgreen",
+                    0.6: "yellow",
+                    0.75: "orange",
+                    0.9: "orangered",
+                    1.0: "red"
+                }}).addTo(map);
+                
+                async function addHeatPoint(lat, lng, value) {
+                    let intensity = Math.min(value / 120, 1);
+                    heatData.push([lat, lng, intensity]);
+                    heatLayer.setLatLngs(heatData);
                 }
-
-                let heatmapData = [];
-                let markers = [];
-
-                function addHeatPoint(lat, lng, value, name, timestamp) {
-                    heatmapData.push([lat, lng, value / 120]); // Normalisieren auf 0-1 für Heatmap
-                    let marker = L.circleMarker([lat, lng], {
-                        radius: 15,
-                        fillColor: getColor(value),
-                        color: "rgba(0,0,0,0)", // Kein Rand
-                        weight: 0,
-                        fillOpacity: 0.7,
-                        className: "pulsating-marker"
-                    }).addTo(map).bindPopup(`Lärmpegel: ${value} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
-                    markers.push(marker);
-                }
-
+                
                 async function saveLaermData(lat, lng, value, name) {
                     try {
                         await addDoc(collection(db, "laermDaten"), {
@@ -78,31 +66,28 @@
                         console.error("❌ Fehler beim Speichern:", error);
                     }
                 }
-
+                
                 async function loadLaermData() {
                     const querySnapshot = await getDocs(collection(db, "laermDaten"));
                     querySnapshot.forEach((doc) => {
                         let data = doc.data();
-                        addHeatPoint(data.lat, data.lng, data.value, data.name, data.timestamp);
+                        addHeatPoint(data.lat, data.lng, data.value);
                     });
-                    let heat = L.heatLayer(heatmapData, { radius: 25, blur: 15, gradient: {
-                        0.2: "green", 0.4: "yellowgreen", 0.6: "yellow", 0.75: "orange", 0.9: "orangered", 1: "red"
-                    }}).addTo(map);
                 }
 
                 loadLaermData();
-
+                
                 map.on('click', function(e) {
                     var lat = e.latlng.lat;
                     var lng = e.latlng.lng;
                     var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-
+                    
                     if (value !== null) {
                         value = parseInt(value);
                         if (!isNaN(value) && value >= 40 && value <= 120) {
                             var name = prompt("Gib den Jägernamen ein:");
                             if (name !== null && name.trim() !== "") {
-                                addHeatPoint(lat, lng, value, name, new Date().toISOString());
+                                addHeatPoint(lat, lng, value);
                                 saveLaermData(lat, lng, value, name);
                             } else {
                                 alert("Bitte einen gültigen Jägernamen eingeben.");
@@ -112,7 +97,6 @@
                         }
                     }
                 });
-
             } else {
                 console.error('Das #map-Element konnte nicht gefunden werden.');
             }
@@ -120,19 +104,41 @@
     </script>
 
     <style>
-        #map { height: 80vh; width: 100%; position: relative; margin-top: 60px; }
-        .pulsating-marker {
-            animation: pulsate 1.5s infinite;
+        #map { 
+            height: 80vh; 
+            width: 100%; 
+            position: relative; 
+            margin-top: 60px; 
         }
-        @keyframes pulsate {
-            0% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.3); opacity: 0.4; }
-            100% { transform: scale(1); opacity: 0.8; }
+
+        #time-container {
+            position: center;
+            top: 40px;
+            z-index: 1000;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #time-slider { 
+            width: 200px; 
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <h1>Lärmkarte Hannover</h1>
+
     <div id="map"></div>
+
+    <div id="time-container">
+        <label for="time-slider">Uhrzeit:</label>
+        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+        <span id="slider-label">00:00</span>
+    </div>
 </body>
 </html>

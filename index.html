@@ -6,6 +6,7 @@
     <title>Lärmkarte Hannover</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
@@ -20,132 +21,84 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        document.addEventListener('DOMContentLoaded', function() {
-            var mapElement = document.getElementById('map');
-            if (mapElement) {
-                // Karte initialisieren
-                var map = L.map('map').setView([52.3759, 9.7320], 12); 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(map);
-                function getHexagonKey(lat, lng) {
-                    let hexSize = 0.0015;
-                    let hexLat = Math.round(lat / hexSize) * hexSize;
-                    let hexLng = Math.round(lng / hexSize) * hexSize;
-                    return `${hexLat},${hexLng}`;
-                }
-                var hexagons = {};
-                function getColor(dB) {
-                    return dB < 50 ? "green" :
-                           dB < 60 ? "yellowgreen" :
-                           dB < 70 ? "yellow" :
-                           dB < 80 ? "orange" :
-                           dB < 90 ? "orangered" :
-                           dB < 100 ? "red" : "darkred";
-                }
-                function addHexagon(lat, lng, value, name, timestamp) {
-                    let hexKey = getHexagonKey(lat, lng);
-                    if (hexagons[hexKey]) {
-                        let hex = hexagons[hexKey];
-                        hex.values.push(value);
-                        hex.names.push(name);
-                        hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
-                        hex.marker.setStyle({ fillColor: getColor(hex.avgValue) });
-                        hex.marker.setPopupContent(`Lärmpegel: ${hex.avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${hex.names.join(", ")}`);
-                    } else {
-                        let avgValue = value;
-                        let marker = L.circleMarker([lat, lng], {
-                            radius: 10,
-                            fillColor: getColor(avgValue),
-                            color: "#000",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        }).addTo(map).bindPopup(`Lärmpegel: ${avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
-                        hexagons[hexKey] = {
-                            lat, lng, values: [value], names: [name], avgValue, marker, timestamp
-                        };
-                    }
-                }
-                async function saveLaermData(lat, lng, value, name) {
-                    try {
-                        await addDoc(collection(db, "laermDaten"), {
-                            lat, lng, value, name,
-                            timestamp: new Date().toISOString()
-                        });
-                        console.log("✅ Lärmdaten gespeichert!");
-                    } catch (error) {
-                        console.error("❌ Fehler beim Speichern:", error);
-                    }
-                }
-                async function loadLaermData() {
-                    const querySnapshot = await getDocs(collection(db, "laermDaten"));
-                    querySnapshot.forEach((doc) => {
-                        let data = doc.data();
-                        addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
-                    });
-                }
-                loadLaermData();
-                const timeSlider = document.getElementById('time-slider');
-                const timeLabel = document.getElementById('slider-label');
-                timeSlider.addEventListener('input', function() {
-                    let selectedTime = this.value;
-                    let formattedTime = `${selectedTime}:00`;
-                    timeLabel.innerText = formattedTime;
-                    Object.values(hexagons).forEach((hex) => {
-                        let hexTime = new Date(hex.timestamp).getHours();
-                        if (hexTime === parseInt(selectedTime)) {
-                            hex.marker.addTo(map);
-                        } else {
-                            map.removeLayer(hex.marker);
-                        }
-                    });
-                });
-                map.on('click', function(e) {
-                    var lat = e.latlng.lat;
-                    var lng = e.latlng.lng;
-                    var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-                    if (value !== null) {
-                        value = parseInt(value);
-                        if (!isNaN(value) && value >= 40 && value <= 120) {
-                            var name = prompt("Gib den Jägernamen ein:");
-                            if (name !== null && name.trim() !== "") {
-                                addHexagon(lat, lng, value, name, new Date().toISOString());
-                                saveLaermData(lat, lng, value, name);
-                            } else {
-                                alert("Bitte einen gültigen Jägernamen eingeben.");
-                            }
-                        } else {
-                            alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
-                        }
-                    }
-                });
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            var map = L.map('map').setView([52.3759, 9.7320], 12); 
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
 
-            } else {
-                console.error('Das #map-Element konnte nicht gefunden werden.');
+            function getColor(dB) {
+                return dB < 50 ? "green" :
+                       dB < 60 ? "yellowgreen" :
+                       dB < 70 ? "yellow" :
+                       dB < 80 ? "orange" :
+                       dB < 90 ? "orangered" :
+                       dB < 100 ? "red" : "darkred";
             }
+            
+            var hexagons = {};
+            function addHexagon(lat, lng, value, name, timestamp) {
+                let hexKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
+                if (hexagons[hexKey]) {
+                    let hex = hexagons[hexKey];
+                    hex.values.push(value);
+                    hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
+                    hex.marker.setStyle({ fillColor: getColor(hex.avgValue) });
+                } else {
+                    let avgValue = value;
+                    let marker = L.circleMarker([lat, lng], {
+                        radius: 10,
+                        fillColor: getColor(avgValue),
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+                    hexagons[hexKey] = { lat, lng, values: [value], avgValue, marker };
+                }
+            }
+            
+            async function loadLaermData() {
+                const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                let points = [];
+                querySnapshot.forEach((doc) => {
+                    let data = doc.data();
+                    addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
+                    points.push(turf.point([data.lng, data.lat], { value: data.value }));
+                });
+                
+                let bbox = turf.bbox(turf.featureCollection(points));
+                let hexGrid = turf.hexGrid(bbox, 0.5, { units: 'kilometers' });
+                
+                hexGrid.features.forEach(hex => {
+                    let hexPoints = points.filter(point => turf.booleanPointInPolygon(point, hex));
+                    if (hexPoints.length > 0) {
+                        let avgValue = Math.round(hexPoints.reduce((sum, p) => sum + p.properties.value, 0) / hexPoints.length);
+                        hex.properties.avgValue = avgValue;
+                    } else {
+                        hex.properties.avgValue = 0;
+                    }
+                });
+                
+                L.geoJson(hexGrid, {
+                    style: feature => ({
+                        fillColor: getColor(feature.properties.avgValue),
+                        weight: 1,
+                        opacity: 1,
+                        color: 'black',
+                        fillOpacity: 0.6
+                    })
+                }).addTo(map);
+            }
+            
+            await loadLaermData();
         });
     </script>
     <style>
         #map { 
             height: 80vh; 
             width: 100%; 
-            position: relative; 
-            margin-top: 60px; 
-        }
-        #time-container {
-            position: center;
-            top: 40px;
-            z-index: 1000;
-            background-color: white;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        #time-slider { 
-            width: 200px; 
-        }
-        h2 {
-            text-align: center;
             margin-top: 20px; 
         }
     </style>
@@ -153,10 +106,5 @@
 <body>
     <h1>Lärmkarte Hannover</h1>
     <div id="map"></div>
-    <div id="time-container">
-        <label for="time-slider">Uhrzeit:</label>
-        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
-        <span id="slider-label">00:00</span>
-    </div>
 </body>
 </html>

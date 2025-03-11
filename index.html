@@ -65,10 +65,8 @@
                         fillOpacity: 1
                     }).addTo(map);
                 });
-                
-                let bbox = turf.bbox(turf.featureCollection(points));
-                let hexGrid = turf.hexGrid(bbox, 0.1, { units: 'kilometers' });
-                
+                let bbox = [9.5, 52.2, 9.9, 52.5]; // [minLon, minLat, maxLon, maxLat] für Hannover
+                let hexGrid = turf.hexGrid(bbox, 0.05, { units: 'kilometers' });
                 hexGrid.features.forEach(hex => {
                     let hexPoints = points.filter(point => turf.booleanPointInPolygon(point, hex));
                     if (hexPoints.length > 0) {

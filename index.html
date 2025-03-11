@@ -40,6 +40,7 @@
 
             var hexagons = {};
             var allPoints = [];
+            var hexGridLayer;
 
             function addHexagon(lat, lng, value, name, timestamp) {
                 let hexKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
@@ -69,8 +70,8 @@
 
                     L.circleMarker([data.lat, data.lng], {
                         radius: 3,
-                        fillColor: "white", 
-                        color: "lightgrey", 
+                        fillColor: "lightgrey", // Update to light grey
+                        color: "lightgrey", // Update to light grey
                         weight: 1,
                         opacity: 1,
                         fillOpacity: 1
@@ -90,9 +91,8 @@
                     }
                 });
 
-                allPoints = points; 
-
-                L.geoJson(hexGrid, {
+                allPoints = points; // Save all points for future filtering
+                hexGridLayer = L.geoJson(hexGrid, {
                     style: feature => ({
                         fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "transparent",
                         weight: 0,
@@ -116,12 +116,16 @@
             });
 
             async function filterDataByTime(selectedTime) {
+                // Clear the previous hexagons and redraw with filtered data
+                hexGridLayer.clearLayers();
+                
                 let filteredPoints = [];
 
                 allPoints.forEach(point => {
                     const timestamp = new Date(point.properties.timestamp);
                     const hour = timestamp.getHours() + timestamp.getMinutes() / 60;
-                    if (Math.abs(hour - selectedTime) < 0.5) { 
+
+                    if (Math.abs(hour - selectedTime) < 0.5) { // Filtered by time (with a 30 min tolerance)
                         filteredPoints.push(point);
                     }
                 });
@@ -159,8 +163,8 @@
                     }
                 });
 
-                // Re-draw hexagons
-                L.geoJson(hexGrid, {
+                // Re-draw hexagons with filtered data
+                hexGridLayer = L.geoJson(hexGrid, {
                     style: feature => ({
                         fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "transparent",
                         weight: 0,

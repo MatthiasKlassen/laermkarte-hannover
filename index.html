@@ -69,8 +69,8 @@
 
                     L.circleMarker([data.lat, data.lng], {
                         radius: 3,
-                        fillColor: "lightgrey", // Update to light grey
-                        color: "lightgrey", // Update to light grey
+                        fillColor: "white", 
+                        color: "lightgrey", 
                         weight: 1,
                         opacity: 1,
                         fillOpacity: 1
@@ -90,7 +90,7 @@
                     }
                 });
 
-                allPoints = points; // Save all points for future filtering
+                allPoints = points; 
 
                 L.geoJson(hexGrid, {
                     style: feature => ({
@@ -121,8 +121,7 @@
                 allPoints.forEach(point => {
                     const timestamp = new Date(point.properties.timestamp);
                     const hour = timestamp.getHours() + timestamp.getMinutes() / 60;
-
-                    if (Math.abs(hour - selectedTime) < 0.5) { // Filtered by time (with a 30 min tolerance)
+                    if (Math.abs(hour - selectedTime) < 0.5) { 
                         filteredPoints.push(point);
                     }
                 });

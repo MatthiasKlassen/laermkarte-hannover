@@ -21,126 +21,90 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
-        let allPoints = []; // Alle Messpunkte
-        let hexagons = {}; // Hexagone, die wir dynamisch anpassen
-
-        // Funktion zur Bestimmung der Farbe der Hexagone
-        function getColor(dB) {
-            return dB < 50 ? "green" :
-                   dB < 60 ? "yellowgreen" :
-                   dB < 70 ? "yellow" :
-                   dB < 80 ? "orange" :
-                   dB < 90 ? "orangered" :
-                   dB < 100 ? "red" : "darkred";
-        }
-
-        function addHexagon(lat, lng, value, name, timestamp) {
-            let hexKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
-            if (hexagons[hexKey]) {
-                let hex = hexagons[hexKey];
-                hex.values.push(value);
-                hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
-            } else {
-                hexagons[hexKey] = { lat, lng, values: [value], avgValue: value };
-            }
-        }
-
-        // Funktion zum Laden der Lärm-Daten
-        async function loadLaermData() {
-            const querySnapshot = await getDocs(collection(db, "laermDaten"));
-            allPoints = []; // Reset der Punkte
-
-            querySnapshot.forEach((doc) => {
-                let data = doc.data();
-                addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
-                allPoints.push({
-                    lat: data.lat,
-                    lng: data.lng,
-                    value: data.value,
-                    timestamp: new Date(data.timestamp),
-                    key: `${Math.round(data.lat * 1000) / 1000},${Math.round(data.lng * 1000) / 1000}`
-                });
-                L.circleMarker([data.lat, data.lng], {
-                    radius: 3,
-                    fillColor: "black",
-                    color: "black",
-                    weight: 1,
-                    opacity: 1,
-                    fillOpacity: 1
-                }).addTo(map);
-            });
-
-            updateHexagons(); // Hexagone anzeigen basierend auf dem Reglerwert
-        }
-
-        // Funktion zum Aktualisieren der Hexagone auf Basis der Uhrzeit
-        function updateHexagons() {
-            let selectedTime = document.getElementById('time-slider').value;
-            let filteredPoints = allPoints.filter(point => point.timestamp.getHours() == selectedTime);
-
-            // Lösche die bestehenden Hexagone
-            map.eachLayer(function (layer) {
-                if (layer instanceof L.GeoJSON) {
-                    map.removeLayer(layer);
-                }
-            });
-
-            let hexagonsData = {};
-            filteredPoints.forEach((point) => {
-                let hexKey = point.key;
-                if (!hexagonsData[hexKey]) {
-                    hexagonsData[hexKey] = { lat: point.lat, lng: point.lng, values: [point.value] };
-                } else {
-                    hexagonsData[hexKey].values.push(point.value);
-                }
-            });
-
-            // Hexagone erstellen
-            let hexGrid = turf.hexGrid([9.4, 52.2, 9.8, 52.5], 0.1, { units: 'kilometers' });
-
-            hexGrid.features.forEach(hex => {
-                let hexKey = `${Math.round(hex.geometry.coordinates[0][0][1] * 1000) / 1000},${Math.round(hex.geometry.coordinates[0][0][0] * 1000) / 1000}`;
-                let hexData = hexagonsData[hexKey];
-                if (hexData) {
-                    let avgValue = Math.round(hexData.values.reduce((sum, val) => sum + val) / hexData.values.length);
-                    hex.properties.avgValue = avgValue;
-                } else {
-                    hex.properties.avgValue = null;
-                }
-            });
-
-            L.geoJson(hexGrid, {
-                style: function (feature) {
-                    return {
-                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "lightblue",
-                        weight: 0,
-                        opacity: 0.6,
-                        color: "white",
-                        fillOpacity: 0.6
-                    };
-                }
-            }).addTo(map);
-        }
-
-        document.addEventListener('DOMContentLoaded', async function () {
-            var map = L.map('map').setView([52.3759, 9.7320], 12);
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            var map = L.map('map').setView([52.3759, 9.7320], 12); 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
 
-            // Lade die Lärm-Daten
+            function getColor(dB) {
+                return dB < 50 ? "green" :
+                       dB < 60 ? "yellowgreen" :
+                       dB < 70 ? "yellow" :
+                       dB < 80 ? "orange" :
+                       dB < 90 ? "orangered" :
+                       dB < 100 ? "red" : "darkred";
+            }
+            
+            var hexagons = {};
+            function addHexagon(lat, lng, value, name, timestamp) {
+                let hexKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
+                if (hexagons[hexKey]) {
+                    let hex = hexagons[hexKey];
+                    hex.values.push(value);
+                    hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
+                } else {
+                    hexagons[hexKey] = { lat, lng, values: [value], avgValue: value };
+                }
+            }
+            
+            async function loadLaermData() {
+                const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                let points = [];
+                let bbox = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity }; // Initialisierte Bounding Box
+
+                querySnapshot.forEach((doc) => {
+                    let data = doc.data();
+                    addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
+                    points.push(turf.point([data.lng, data.lat], { value: data.value, timestamp: data.timestamp }));
+                    
+                    // Aktualisiere die Bounding Box basierend auf den Messpunkten
+                    if (data.lat < bbox.minLat) bbox.minLat = data.lat;
+                    if (data.lat > bbox.maxLat) bbox.maxLat = data.lat;
+                    if (data.lng < bbox.minLng) bbox.minLng = data.lng;
+                    if (data.lng > bbox.maxLng) bbox.maxLng = data.lng;
+
+                    L.circleMarker([data.lat, data.lng], {
+                        radius: 3,
+                        fillColor: "black",
+                        color: "black",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 1
+                    }).addTo(map);
+                });
+
+                // Erstelle die Bounding Box für das Hexagongitter basierend auf den Datenpunkten
+                let gridBBox = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat];
+
+                // Erstelle Hexagone nur für den Bereich der Messpunkte
+                let hexGrid = turf.hexGrid(gridBBox, 0.1, { units: 'kilometers' });
+
+                hexGrid.features.forEach(hex => {
+                    let hexPoints = points.filter(point => turf.booleanPointInPolygon(point, hex));
+                    if (hexPoints.length > 0) {
+                        let avgValue = Math.round(hexPoints.reduce((sum, p) => sum + p.properties.value, 0) / hexPoints.length);
+                        hex.properties.avgValue = avgValue;
+                    } else {
+                        hex.properties.avgValue = null;
+                    }
+                });
+                
+                L.geoJson(hexGrid, {
+                    style: feature => ({
+                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "lightblue",
+                        weight: 0,
+                        opacity: 0,
+                        color: "white",
+                        fillOpacity: 0.6
+                    })
+                }).addTo(map);
+            }
+            
             await loadLaermData();
-
-            // Regler EventListener für die Zeit
-            document.getElementById('time-slider').addEventListener('input', function (e) {
-                let hour = e.target.value;
-                let formattedTime = hour < 10 ? `0${hour}:00` : `${hour}:00`;
-                document.getElementById('slider-label').innerText = formattedTime;
-                updateHexagons(); // Hexagone mit der neuen Uhrzeit aktualisieren
-            });
-
-            map.on('click', async function (e) {
+            
+            map.on('click', async function(e) {
                 let lat = e.latlng.lat;
                 let lng = e.latlng.lng;
                 let value = prompt("Gib den Lärmpegel in dB ein (40-120):");

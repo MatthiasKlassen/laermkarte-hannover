@@ -21,8 +21,12 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        let allPoints = [];
-        let hexagons = {};
+
+        let allPoints = []; // Alle Messpunkte
+        let hexagons = {}; // Hexagone, die wir dynamisch anpassen
+        let hexLayerGroup; // Gruppe für Hexagone
+
+        // Funktion zur Bestimmung der Farbe der Hexagone
         function getColor(dB) {
             return dB < 50 ? "green" :
                    dB < 60 ? "yellowgreen" :
@@ -31,6 +35,7 @@
                    dB < 90 ? "orangered" :
                    dB < 100 ? "red" : "darkred";
         }
+
         function addHexagon(lat, lng, value, name, timestamp) {
             let hexKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
             if (hexagons[hexKey]) {
@@ -41,6 +46,8 @@
                 hexagons[hexKey] = { lat, lng, values: [value], avgValue: value };
             }
         }
+
+        // Funktion zum Laden der Lärm-Daten
         async function loadLaermData() {
             const querySnapshot = await getDocs(collection(db, "laermDaten"));
             allPoints = []; // Reset der Punkte
@@ -64,16 +71,18 @@
                     fillOpacity: 1
                 }).addTo(map);
             });
-            updateHexagons();
+
+            updateHexagons(); // Hexagone anzeigen basierend auf dem Reglerwert
         }
+
+        // Funktion zum Aktualisieren der Hexagone auf Basis der Uhrzeit
         function updateHexagons() {
             let selectedTime = document.getElementById('time-slider').value;
             let filteredPoints = allPoints.filter(point => point.timestamp.getHours() == selectedTime);
-            map.eachLayer(function (layer) {
-                if (layer instanceof L.GeoJSON) {
-                    map.removeLayer(layer);
-                }
-            });
+
+            // Lösche die bestehenden Hexagone in der HexLayerGroup
+            hexLayerGroup.clearLayers();
+
             let hexagonsData = {};
             filteredPoints.forEach((point) => {
                 let hexKey = point.key;
@@ -83,7 +92,10 @@
                     hexagonsData[hexKey].values.push(point.value);
                 }
             });
+
+            // Hexagone erstellen
             let hexGrid = turf.hexGrid([9.4, 52.2, 9.8, 52.5], 0.1, { units: 'kilometers' });
+
             hexGrid.features.forEach(hex => {
                 let hexKey = `${Math.round(hex.geometry.coordinates[0][0][1] * 1000) / 1000},${Math.round(hex.geometry.coordinates[0][0][0] * 1000) / 1000}`;
                 let hexData = hexagonsData[hexKey];
@@ -94,6 +106,8 @@
                     hex.properties.avgValue = null;
                 }
             });
+
+            // Hexagone zur LayerGroup hinzufügen
             L.geoJson(hexGrid, {
                 style: function (feature) {
                     return {
@@ -105,20 +119,29 @@
                     };
                 },
                 interactive: false // Keine Interaktivität für die Hexagone, Klicks werden durchgelassen
-            }).addTo(map);
+            }).addTo(hexLayerGroup);
         }
+
         document.addEventListener('DOMContentLoaded', async function () {
             var map = L.map('map').setView([52.3759, 9.7320], 13); // Karte näher an Hannover (Zoomlevel 13)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
+
+            // Initialisiere die HexLayerGroup
+            hexLayerGroup = L.layerGroup().addTo(map);
+
+            // Lade die Lärm-Daten
             await loadLaermData();
+
+            // Regler EventListener für die Zeit
             document.getElementById('time-slider').addEventListener('input', function (e) {
                 let hour = e.target.value;
                 let formattedTime = hour < 10 ? `0${hour}:00` : `${hour}:00`;
                 document.getElementById('slider-label').innerText = formattedTime;
                 updateHexagons(); // Hexagone mit der neuen Uhrzeit aktualisieren
             });
+
             map.on('click', async function (e) {
                 let lat = e.latlng.lat;
                 let lng = e.latlng.lng;

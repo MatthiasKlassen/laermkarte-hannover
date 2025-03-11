@@ -89,11 +89,16 @@
                         fillOpacity: 0.6
                     })
                 }).addTo(map);
-                filterDataByTime(0);
+
+                filterDataByTime(-1);
             }
 
             await loadLaermData();
-            document.getElementById('time-dropdown').addEventListener('change', function() {
+
+            const timeDropdown = document.getElementById('time-dropdown');
+            timeDropdown.value = -1; 
+
+            timeDropdown.addEventListener('change', function() {
                 const selectedTime = parseInt(this.value);
                 const timeString = selectedTime === -1 ? "Gesamtzeit" : `${selectedTime.toString().padStart(2, '0')}:00`;
                 document.getElementById('slider-label').textContent = timeString;

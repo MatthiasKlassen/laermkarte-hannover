@@ -93,7 +93,7 @@
                 
                 L.geoJson(hexGrid, {
                     style: feature => ({
-                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue),
+                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "transparent",
                         weight: 0,
                         opacity: 0,
                         color: "white",

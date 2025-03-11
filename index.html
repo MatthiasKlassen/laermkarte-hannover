@@ -44,18 +44,8 @@
                     let hex = hexagons[hexKey];
                     hex.values.push(value);
                     hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
-                    hex.marker.setStyle({ fillColor: getColor(hex.avgValue) });
                 } else {
-                    let avgValue = value;
-                    let marker = L.circleMarker([lat, lng], {
-                        radius: 10,
-                        fillColor: getColor(avgValue),
-                        color: "#000",
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).addTo(map);
-                    hexagons[hexKey] = { lat, lng, values: [value], avgValue, marker };
+                    hexagons[hexKey] = { lat, lng, values: [value], avgValue: value };
                 }
             }
             
@@ -66,10 +56,18 @@
                     let data = doc.data();
                     addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
                     points.push(turf.point([data.lng, data.lat], { value: data.value }));
+                    L.circleMarker([data.lat, data.lng], {
+                        radius: 3,
+                        fillColor: "black",
+                        color: "black",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 1
+                    }).addTo(map);
                 });
                 
                 let bbox = turf.bbox(turf.featureCollection(points));
-                let hexGrid = turf.hexGrid(bbox, 0.5, { units: 'kilometers' });
+                let hexGrid = turf.hexGrid(bbox, 0.1, { units: 'kilometers' });
                 
                 hexGrid.features.forEach(hex => {
                     let hexPoints = points.filter(point => turf.booleanPointInPolygon(point, hex));
@@ -77,22 +75,45 @@
                         let avgValue = Math.round(hexPoints.reduce((sum, p) => sum + p.properties.value, 0) / hexPoints.length);
                         hex.properties.avgValue = avgValue;
                     } else {
-                        hex.properties.avgValue = 0;
+                        hex.properties.avgValue = null;
                     }
                 });
                 
                 L.geoJson(hexGrid, {
                     style: feature => ({
-                        fillColor: getColor(feature.properties.avgValue),
-                        weight: 1,
-                        opacity: 1,
-                        color: 'black',
-                        fillOpacity: 0.6
+                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "white",
+                        weight: 0,
+                        opacity: 0,
+                        color: "white",
+                        fillOpacity: feature.properties.avgValue !== null ? 0.6 : 0
                     })
                 }).addTo(map);
             }
             
             await loadLaermData();
+            
+            map.on('click', async function(e) {
+                let lat = e.latlng.lat;
+                let lng = e.latlng.lng;
+                let value = prompt("Gib den Lärmpegel in dB ein (40-120):");
+                if (value !== null) {
+                    value = parseInt(value);
+                    if (!isNaN(value) && value >= 40 && value <= 120) {
+                        let name = prompt("Gib den Jägernamen ein:");
+                        if (name !== null && name.trim() !== "") {
+                            await addDoc(collection(db, "laermDaten"), {
+                                lat, lng, value, name,
+                                timestamp: new Date().toISOString()
+                            });
+                            location.reload();
+                        } else {
+                            alert("Bitte einen gültigen Jägernamen eingeben.");
+                        }
+                    } else {
+                        alert("Bitte einen gültigen Wert zwischen 40 und 120 dB eingeben.");
+                    }
+                }
+            });
         });
     </script>
     <style>

@@ -52,10 +52,19 @@
             async function loadLaermData() {
                 const querySnapshot = await getDocs(collection(db, "laermDaten"));
                 let points = [];
+                let bbox = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity }; // Initialisierte Bounding Box
+
                 querySnapshot.forEach((doc) => {
                     let data = doc.data();
                     addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
                     points.push(turf.point([data.lng, data.lat], { value: data.value, timestamp: data.timestamp }));
+                    
+                    // Aktualisiere die Bounding Box basierend auf den Messpunkten
+                    if (data.lat < bbox.minLat) bbox.minLat = data.lat;
+                    if (data.lat > bbox.maxLat) bbox.maxLat = data.lat;
+                    if (data.lng < bbox.minLng) bbox.minLng = data.lng;
+                    if (data.lng > bbox.maxLng) bbox.maxLng = data.lng;
+
                     L.circleMarker([data.lat, data.lng], {
                         radius: 3,
                         fillColor: "black",
@@ -65,8 +74,13 @@
                         fillOpacity: 1
                     }).addTo(map);
                 });
-                let bbox = [9.5, 52.2, 9.9, 52.5]; // [minLon, minLat, maxLon, maxLat] für Hannover
-                let hexGrid = turf.hexGrid(bbox, 0.05, { units: 'kilometers' });
+
+                // Erstelle die Bounding Box für das Hexagongitter basierend auf den Datenpunkten
+                let gridBBox = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat];
+
+                // Erstelle Hexagone nur für den Bereich der Messpunkte
+                let hexGrid = turf.hexGrid(gridBBox, 0.1, { units: 'kilometers' });
+
                 hexGrid.features.forEach(hex => {
                     let hexPoints = points.filter(point => turf.booleanPointInPolygon(point, hex));
                     if (hexPoints.length > 0) {

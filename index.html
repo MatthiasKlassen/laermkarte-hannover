@@ -89,14 +89,10 @@
                         fillOpacity: 0.6
                     })
                 }).addTo(map);
-
-                // Initiale Anzeige aller Daten (00:00)
                 filterDataByTime(0);
             }
 
             await loadLaermData();
-
-            // Dropdown-Menü für die Uhrzeit auswählen
             document.getElementById('time-dropdown').addEventListener('change', function() {
                 const selectedTime = parseInt(this.value);
                 const timeString = `${selectedTime.toString().padStart(2, '0')}:00`;

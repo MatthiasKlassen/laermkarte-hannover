@@ -49,7 +49,6 @@
 
                 querySnapshot.forEach((doc) => {
                     let data = doc.data();
-                    addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
                     points.push(turf.point([data.lng, data.lat], { value: data.value, timestamp: data.timestamp }));
 
                     if (data.lat < bbox.minLat) bbox.minLat = data.lat;
@@ -90,6 +89,9 @@
                         fillOpacity: 0.6
                     })
                 }).addTo(map);
+
+                // Initiale Anzeige aller Daten (00:00)
+                filterDataByTime(0);
             }
 
             await loadLaermData();
@@ -167,6 +169,7 @@
                     })
                 }).addTo(map);
             }
+
             map.on('click', async function(e) {
                 let lat = e.latlng.lat;
                 let lng = e.latlng.lng;

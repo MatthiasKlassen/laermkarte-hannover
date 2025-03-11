@@ -42,17 +42,6 @@
             var allPoints = [];
             var hexGridLayer;
 
-            function addHexagon(lat, lng, value, name, timestamp) {
-                let hexKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
-                if (hexagons[hexKey]) {
-                    let hex = hexagons[hexKey];
-                    hex.values.push(value);
-                    hex.avgValue = Math.round(hex.values.reduce((a, b) => a + b) / hex.values.length);
-                } else {
-                    hexagons[hexKey] = { lat, lng, values: [value], avgValue: value };
-                }
-            }
-
             async function loadLaermData() {
                 const querySnapshot = await getDocs(collection(db, "laermDaten"));
                 let points = [];
@@ -104,33 +93,34 @@
             }
 
             await loadLaermData();
-            document.getElementById('time-slider').addEventListener('input', function() {
-                const timeValue = this.value;
-                const hours = Math.floor(timeValue);
-                const minutes = Math.round((timeValue - hours) * 60);
-                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+            // Dropdown-Menü für die Uhrzeit auswählen
+            document.getElementById('time-dropdown').addEventListener('change', function() {
+                const selectedTime = parseInt(this.value);
+                const timeString = `${selectedTime.toString().padStart(2, '0')}:00`;
                 document.getElementById('slider-label').textContent = timeString;
-                filterDataByTime(timeValue);
+                filterDataByTime(selectedTime);
             });
 
             async function filterDataByTime(selectedTime) {
                 hexGridLayer.clearLayers();
-            
+                
                 let filteredPoints = [];
                 allPoints.forEach(point => {
                     const timestamp = new Date(point.properties.timestamp);
-                    const hour = timestamp.getHours() + timestamp.getMinutes() / 60;
-                    if (Math.abs(hour - selectedTime) < 0.5) {
+                    const hour = timestamp.getHours();
+                    if (hour === selectedTime) {
                         filteredPoints.push(point);
                     }
                 });
 
                 updateHexagons(filteredPoints);
             }
+
             async function updateHexagons(points) {
                 let hexagons = {};
                 const querySnapshot = await getDocs(collection(db, "laermDaten"));
-                let bbox = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity }; 
+                let bbox = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
 
                 querySnapshot.forEach((doc) => {
                     let data = doc.data();
@@ -139,6 +129,7 @@
                     if (data.lng < bbox.minLng) bbox.minLng = data.lng;
                     if (data.lng > bbox.maxLng) bbox.maxLng = data.lng;
                 });
+
                 points.forEach(point => {
                     let lat = point.geometry.coordinates[1];
                     let lng = point.geometry.coordinates[0];
@@ -165,6 +156,7 @@
                         hex.properties.avgValue = null;
                     }
                 });
+
                 hexGridLayer = L.geoJson(hexGrid, {
                     style: feature => ({
                         fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "transparent",
@@ -175,7 +167,6 @@
                     })
                 }).addTo(map);
             }
-
             map.on('click', async function(e) {
                 let lat = e.latlng.lat;
                 let lng = e.latlng.lng;
@@ -216,8 +207,8 @@
             border-radius: 5px;
             z-index: 1000;
         }
-        #time-slider {
-            width: 200px;
+        #time-dropdown {
+            width: 120px;
         }
     </style>
 </head>
@@ -225,8 +216,33 @@
     <h1>Lärmkarte Hannover</h1>
     <div id="map"></div>
     <div id="time-container">
-        <label for="time-slider">Uhrzeit:</label>
-        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+        <label for="time-dropdown">Uhrzeit:</label>
+        <select id="time-dropdown">
+            <option value="0">00:00</option>
+            <option value="1">01:00</option>
+            <option value="2">02:00</option>
+            <option value="3">03:00</option>
+            <option value="4">04:00</option>
+            <option value="5">05:00</option>
+            <option value="6">06:00</option>
+            <option value="7">07:00</option>
+            <option value="8">08:00</option>
+            <option value="9">09:00</option>
+            <option value="10">10:00</option>
+            <option value="11">11:00</option>
+            <option value="12">12:00</option>
+            <option value="13">13:00</option>
+            <option value="14">14:00</option>
+            <option value="15">15:00</option>
+            <option value="16">16:00</option>
+            <option value="17">17:00</option>
+            <option value="18">18:00</option>
+            <option value="19">19:00</option>
+            <option value="20">20:00</option>
+            <option value="21">21:00</option>
+            <option value="22">22:00</option>
+            <option value="23">23:00</option>
+        </select>
         <span id="slider-label">00:00</span>
     </div>
 </body>

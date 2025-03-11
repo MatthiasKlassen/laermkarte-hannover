@@ -55,7 +55,7 @@
                 querySnapshot.forEach((doc) => {
                     let data = doc.data();
                     addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
-                    points.push(turf.point([data.lng, data.lat], { value: data.value }));
+                    points.push(turf.point([data.lng, data.lat], { value: data.value, timestamp: data.timestamp }));
                     L.circleMarker([data.lat, data.lng], {
                         radius: 3,
                         fillColor: "black",
@@ -81,11 +81,11 @@
                 
                 L.geoJson(hexGrid, {
                     style: feature => ({
-                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "white",
+                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "lightblue",
                         weight: 0,
                         opacity: 0,
                         color: "white",
-                        fillOpacity: feature.properties.avgValue !== null ? 0.6 : 0
+                        fillOpacity: 0.6
                     })
                 }).addTo(map);
             }
@@ -122,10 +122,28 @@
             width: 100%; 
             margin-top: 20px; 
         }
+        #time-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+        #time-slider {
+            width: 200px;
+        }
     </style>
 </head>
 <body>
     <h1>Lärmkarte Hannover</h1>
     <div id="map"></div>
+    <div id="time-container">
+        <label for="time-slider">Uhrzeit:</label>
+        <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
+        <span id="slider-label">00:00</span>
+    </div>
 </body>
 </html>

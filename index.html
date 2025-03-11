@@ -95,7 +95,7 @@
             await loadLaermData();
             document.getElementById('time-dropdown').addEventListener('change', function() {
                 const selectedTime = parseInt(this.value);
-                const timeString = `${selectedTime.toString().padStart(2, '0')}:00`;
+                const timeString = selectedTime === -1 ? "Gesamtzeit" : `${selectedTime.toString().padStart(2, '0')}:00`;
                 document.getElementById('slider-label').textContent = timeString;
                 filterDataByTime(selectedTime);
             });
@@ -104,13 +104,17 @@
                 hexGridLayer.clearLayers();
                 
                 let filteredPoints = [];
-                allPoints.forEach(point => {
-                    const timestamp = new Date(point.properties.timestamp);
-                    const hour = timestamp.getHours();
-                    if (hour === selectedTime) {
-                        filteredPoints.push(point);
-                    }
-                });
+                if (selectedTime === -1) {
+                    filteredPoints = allPoints; // Gesamtzeit: Alle Daten anzeigen
+                } else {
+                    allPoints.forEach(point => {
+                        const timestamp = new Date(point.properties.timestamp);
+                        const hour = timestamp.getHours();
+                        if (hour === selectedTime) {
+                            filteredPoints.push(point);
+                        }
+                    });
+                }
 
                 updateHexagons(filteredPoints);
             }
@@ -165,7 +169,6 @@
                     })
                 }).addTo(map);
             }
-
             map.on('click', async function(e) {
                 let lat = e.latlng.lat;
                 let lng = e.latlng.lng;
@@ -241,6 +244,7 @@
             <option value="21">21:00</option>
             <option value="22">22:00</option>
             <option value="23">23:00</option>
+            <option value="-1">Gesamtzeit</option>
         </select>
         <span id="slider-label">00:00</span>
     </div>

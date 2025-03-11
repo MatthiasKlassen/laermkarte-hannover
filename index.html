@@ -127,8 +127,18 @@
 
                 updateHexagons(filteredPoints);
             }
-            function updateHexagons(points) {
+            async function updateHexagons(points) {
                 let hexagons = {};
+                const querySnapshot = await getDocs(collection(db, "laermDaten"));
+                let bbox = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity }; 
+
+                querySnapshot.forEach((doc) => {
+                    let data = doc.data();
+                    if (data.lat < bbox.minLat) bbox.minLat = data.lat;
+                    if (data.lat > bbox.maxLat) bbox.maxLat = data.lat;
+                    if (data.lng < bbox.minLng) bbox.minLng = data.lng;
+                    if (data.lng > bbox.maxLng) bbox.maxLng = data.lng;
+                });
                 points.forEach(point => {
                     let lat = point.geometry.coordinates[1];
                     let lng = point.geometry.coordinates[0];

@@ -4,19 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lärmkarte Hannover</title>
-    
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Firebase Modul -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
-
-        // Firebase-Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyBNmZjVFgeqgUdHmcZYzSPV1kTiJSPkUTM",
             authDomain: "laermjaeger.firebaseapp.com",
@@ -26,30 +18,23 @@
             appId: "1:738314658200:web:bfadd216c180ebdcb78bed",
             measurementId: "G-JQQ4CXR7GD"
         };
-
-        // Firebase initialisieren
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
         document.addEventListener('DOMContentLoaded', function() {
             var mapElement = document.getElementById('map');
             if (mapElement) {
                 // Karte initialisieren
                 var map = L.map('map').setView([52.3759, 9.7320], 12); 
-
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
-
                 function getHexagonKey(lat, lng) {
                     let hexSize = 0.0015;
                     let hexLat = Math.round(lat / hexSize) * hexSize;
                     let hexLng = Math.round(lng / hexSize) * hexSize;
                     return `${hexLat},${hexLng}`;
                 }
-
                 var hexagons = {};
-
                 function getColor(dB) {
                     return dB < 50 ? "green" :
                            dB < 60 ? "yellowgreen" :
@@ -58,10 +43,8 @@
                            dB < 90 ? "orangered" :
                            dB < 100 ? "red" : "darkred";
                 }
-
                 function addHexagon(lat, lng, value, name, timestamp) {
                     let hexKey = getHexagonKey(lat, lng);
-
                     if (hexagons[hexKey]) {
                         let hex = hexagons[hexKey];
                         hex.values.push(value);
@@ -79,14 +62,11 @@
                             opacity: 1,
                             fillOpacity: 0.8
                         }).addTo(map).bindPopup(`Lärmpegel: ${avgValue} dB<br>Zeit: ${timestamp}<br>Jäger: ${name}`);
-
                         hexagons[hexKey] = {
                             lat, lng, values: [value], names: [name], avgValue, marker, timestamp
                         };
                     }
                 }
-
-                // Lärmdaten speichern
                 async function saveLaermData(lat, lng, value, name) {
                     try {
                         await addDoc(collection(db, "laermDaten"), {
@@ -98,8 +78,6 @@
                         console.error("❌ Fehler beim Speichern:", error);
                     }
                 }
-
-                // Lärmdaten aus Firestore laden
                 async function loadLaermData() {
                     const querySnapshot = await getDocs(collection(db, "laermDaten"));
                     querySnapshot.forEach((doc) => {
@@ -107,19 +85,13 @@
                         addHexagon(data.lat, data.lng, data.value, data.name, data.timestamp);
                     });
                 }
-
                 loadLaermData();
-
-                // Zeitregler anpassen
                 const timeSlider = document.getElementById('time-slider');
                 const timeLabel = document.getElementById('slider-label');
-
                 timeSlider.addEventListener('input', function() {
                     let selectedTime = this.value;
                     let formattedTime = `${selectedTime}:00`;
                     timeLabel.innerText = formattedTime;
-
-                    // Filter auf die angezeigten Marker anwenden basierend auf der Stunde
                     Object.values(hexagons).forEach((hex) => {
                         let hexTime = new Date(hex.timestamp).getHours();
                         if (hexTime === parseInt(selectedTime)) {
@@ -129,13 +101,10 @@
                         }
                     });
                 });
-
-                // Klick-Event zur Eingabe von Lärmdaten
                 map.on('click', function(e) {
                     var lat = e.latlng.lat;
                     var lng = e.latlng.lng;
                     var value = prompt("Gib den Lärmpegel in dB ein (40-120):");
-
                     if (value !== null) {
                         value = parseInt(value);
                         if (!isNaN(value) && value >= 40 && value <= 120) {
@@ -157,17 +126,13 @@
             }
         });
     </script>
-
     <style>
-        /* Karte: Full-HD-Auflösung und Abstand zur Überschrift */
         #map { 
             height: 80vh; 
             width: 100%; 
             position: relative; 
-            margin-top: 60px; /* Abstand nach oben, damit die Überschrift sichtbar bleibt */
+            margin-top: 60px; 
         }
-
-        /* Zeitregler oben links */
         #time-container {
             position: center;
             top: 40px;
@@ -176,30 +141,22 @@
             padding: 10px;
             border-radius: 5px;
         }
-
         #time-slider { 
             width: 200px; 
         }
-
-        /* Überschrift */
         h2 {
             text-align: center;
-            margin-top: 20px; /* Abstand nach oben */
+            margin-top: 20px; 
         }
     </style>
 </head>
 <body>
     <h1>Lärmkarte Hannover</h1>
-
-    <!-- Karte Container -->
     <div id="map"></div>
-
-    <!-- Zeitregler oben links -->
     <div id="time-container">
         <label for="time-slider">Uhrzeit:</label>
         <input type="range" id="time-slider" min="0" max="24" step="1" value="0" />
         <span id="slider-label">00:00</span>
     </div>
-
 </body>
 </html>

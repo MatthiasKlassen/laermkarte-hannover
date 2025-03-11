@@ -24,7 +24,6 @@
 
         let allPoints = []; // Alle Messpunkte
         let hexagons = {}; // Hexagone, die wir dynamisch anpassen
-        let hexLayerGroup; // Gruppe für Hexagone
 
         // Funktion zur Bestimmung der Farbe der Hexagone
         function getColor(dB) {
@@ -80,8 +79,12 @@
             let selectedTime = document.getElementById('time-slider').value;
             let filteredPoints = allPoints.filter(point => point.timestamp.getHours() == selectedTime);
 
-            // Lösche die bestehenden Hexagone in der HexLayerGroup
-            hexLayerGroup.clearLayers();
+            // Lösche die bestehenden Hexagone
+            map.eachLayer(function (layer) {
+                if (layer instanceof L.GeoJSON) {
+                    map.removeLayer(layer);
+                }
+            });
 
             let hexagonsData = {};
             filteredPoints.forEach((point) => {
@@ -107,29 +110,24 @@
                 }
             });
 
-            // Hexagone zur LayerGroup hinzufügen
             L.geoJson(hexGrid, {
                 style: function (feature) {
                     return {
-                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "transparent",
+                        fillColor: feature.properties.avgValue !== null ? getColor(feature.properties.avgValue) : "lightblue",
                         weight: 0,
                         opacity: 0.6,
                         color: "white",
-                        fillOpacity: 0.4
+                        fillOpacity: 0.6
                     };
-                },
-                interactive: false // Keine Interaktivität für die Hexagone, Klicks werden durchgelassen
-            }).addTo(hexLayerGroup);
+                }
+            }).addTo(map);
         }
 
         document.addEventListener('DOMContentLoaded', async function () {
-            var map = L.map('map').setView([52.3759, 9.7320], 13); // Karte näher an Hannover (Zoomlevel 13)
+            var map = L.map('map').setView([52.3759, 9.7320], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
-
-            // Initialisiere die HexLayerGroup
-            hexLayerGroup = L.layerGroup().addTo(map);
 
             // Lade die Lärm-Daten
             await loadLaermData();

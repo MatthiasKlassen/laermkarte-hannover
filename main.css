@@ -20,11 +20,11 @@ footer {
 
 .logos {
     display: table-cell;
-    margin-left: 40px;
 }
 .logo {
     height: 70px;
     padding: 5px;
+    margin-left: 40px;
 }
 
 #map { 

@@ -1,5 +1,7 @@
 h1 {
-    margin-left: 20px;
+    font-family: 'Helvetica', sans-serif;
+    font-weight: 700;
+    margin-left: 40px;
 }
 
 body {
@@ -30,6 +32,7 @@ footer {
 }
 
 .timeFilter {
+    font-family: 'Helvetica', sans-serif;
     position: absolute;
     top: 20px;
     left: 50%;

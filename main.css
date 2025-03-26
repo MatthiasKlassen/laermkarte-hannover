@@ -1,5 +1,5 @@
 body {
-    min-height: 70vh;
+    min-height: 100vh;
     margin: 0;
     background-color: #FFFFFF;
     display: grid;
@@ -7,7 +7,7 @@ body {
 }
 
 #map { 
-    height: 70vh; 
+    height: 100vh; 
     width: 100%; 
     top: 20px; 
 }
@@ -15,7 +15,7 @@ body {
 .timeFilter {
     font-family: 'Helvetica', sans-serif;
     position: absolute;
-    bottom: 350px; 
+    bottom: 30px; 
     left: 30px;   
     transform: none; 
     font-size: 1.5rem; 

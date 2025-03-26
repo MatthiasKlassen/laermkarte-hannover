@@ -1,8 +1,8 @@
 h1 {
     font-family: 'Helvetica', sans-serif;
     font-weight: 700;
-    margin-left: 40px;
-    margin-top: 10px;
+    left: 40px;
+    top: 10px;
 }
 
 body {
@@ -25,14 +25,14 @@ footer {
 .logo {
     height: 70px;
     padding: 5px;
-    margin-left: 40px;
-    margin-top: 10px;
+    left: 40px;
+    top: 10px;
 }
 
 #map { 
     height: 80vh; 
     width: 100%; 
-    margin-top: 20px; 
+    top: 20px; 
 }
 
 .timeFilter {

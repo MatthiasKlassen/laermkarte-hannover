@@ -13,7 +13,7 @@ body {
 }
 
 footer {
-    min-height: 150px;
+    min-height: 100px;
     background-color: #f1f5f9;
     display: table;
 }
@@ -25,6 +25,7 @@ footer {
     height: 70px;
     padding: 5px;
     margin-left: 40px;
+    margin-top: 40px;
 }
 
 #map { 

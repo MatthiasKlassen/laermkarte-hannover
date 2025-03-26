@@ -15,7 +15,7 @@ body {
 .timeFilter {
     font-family: 'Helvetica', sans-serif;
     position: absolute;
-    bottom: 400px; 
+    bottom: 350px; 
     left: 30px;   
     transform: none; 
     font-size: 1.5rem; 
